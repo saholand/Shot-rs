@@ -1,0 +1,28 @@
+# Skill: Electron Architecture
+
+## Amaç
+Electron tabanlı masaüstü uygulamasında temiz sınırlar kurmak.
+
+## Mimari ilkeler
+1. Main process, preload ve renderer net ayrılmalı.
+2. Renderer tarafına doğrudan Node API verilmemeli.
+3. Süreçler arası iletişim IPC ile yapılmalı.
+4. Ortak tipler shared alanda tutulmalı.
+5. Güvenlik önceliklidir.
+
+## Dosya organizasyonu önerisi
+- src/main
+- src/preload
+- src/renderer
+- src/shared
+
+## Karar kuralları
+- OS seviyesi işlemler main process tarafında olsun.
+- UI ve etkileşim renderer tarafında olsun.
+- Preload sadece kontrollü köprü sunsun.
+- Screenshot ve dosya kayıt akışları izole modüller halinde tasarlansın.
+
+## Uygulama yaklaşımı
+Önce iskelet kur.
+Sonra minimal çalışan akış üret.
+Sonra mimariyi bozmadan genişlet.

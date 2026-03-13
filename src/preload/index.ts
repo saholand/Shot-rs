@@ -1,0 +1,152 @@
+import { contextBridge, ipcRenderer } from 'electron'
+import { IPC_CHANNELS } from '../shared/constants'
+import type { ElectronAPI, OverlayAPI, AnnotationOverlayAPI, AnnotationMode, ScreenBounds, SelectionRegion } from '../shared/types/ipc'
+
+const RESULT_CHANNEL = IPC_CHANNELS.SCREENSHOT_RESULT
+const CAPTURED_CHANNEL = IPC_CHANNELS.SCREENSHOT_CAPTURED
+
+const api: ElectronAPI = {
+  screenshot: {
+    start: () => ipcRenderer.invoke(IPC_CHANNELS.SCREENSHOT_START),
+    cancel: () => ipcRenderer.invoke(IPC_CHANNELS.SCREENSHOT_CANCEL),
+    capture: (region) => ipcRenderer.invoke(IPC_CHANNELS.SCREENSHOT_CAPTURE, region),
+    save: () => ipcRenderer.invoke(IPC_CHANNELS.SCREENSHOT_SAVE),
+    copy: () => ipcRenderer.invoke(IPC_CHANNELS.SCREENSHOT_COPY),
+    copyFinal: (dataUrl) => ipcRenderer.invoke(IPC_CHANNELS.SCREENSHOT_COPY_FINAL, dataUrl),
+    saveFinal: (dataUrl) => ipcRenderer.invoke(IPC_CHANNELS.SCREENSHOT_SAVE_FINAL, dataUrl),
+    onResult: (callback) => {
+      ipcRenderer.on(RESULT_CHANNEL, (_event, result) => callback(result))
+    },
+    removeResultListener: () => {
+      ipcRenderer.removeAllListeners(RESULT_CHANNEL)
+    },
+    onCaptured: (callback) => {
+      ipcRenderer.on(CAPTURED_CHANNEL, (_event, dataUrl) => callback(dataUrl))
+    },
+    removeCapturedListener: () => {
+      ipcRenderer.removeAllListeners(CAPTURED_CHANNEL)
+    }
+  },
+  recording: {
+    getSources: () => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_GET_SOURCES),
+    startRecording: (sourceId, sourceName, micEnabled) => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_START, sourceId, sourceName, micEnabled),
+    stop: () => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_STOP),
+    save: (buffer, mimeType) => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_SAVE, buffer, mimeType),
+    toggleAnnotation: () => ipcRenderer.send(IPC_CHANNELS.ANNOTATION_OVERLAY_TOGGLE),
+    sendAnnotationCommand: (command) => ipcRenderer.send(IPC_CHANNELS.ANNOTATION_COMMAND, command),
+    onAnnotationMode: (callback) => {
+      ipcRenderer.on(IPC_CHANNELS.ANNOTATION_MODE_CHANGED, (_e, drawing) => callback(drawing))
+    },
+    removeAnnotationModeListener: () => {
+      ipcRenderer.removeAllListeners(IPC_CHANNELS.ANNOTATION_MODE_CHANGED)
+    },
+    onStopRequest: (callback) => {
+      ipcRenderer.on(IPC_CHANNELS.ANNOTATION_STOP_RECORDING, () => callback())
+    },
+    removeStopRequestListener: () => {
+      ipcRenderer.removeAllListeners(IPC_CHANNELS.ANNOTATION_STOP_RECORDING)
+    },
+    onQuickStart: (callback) => {
+      ipcRenderer.on(IPC_CHANNELS.RECORDING_QUICK_START, (_e, source) => callback(source))
+    },
+    removeQuickStartListener: () => {
+      ipcRenderer.removeAllListeners(IPC_CHANNELS.RECORDING_QUICK_START)
+    },
+    selectRegion: () => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_SELECT_REGION),
+    onRegionSelected: (callback) => {
+      ipcRenderer.on(IPC_CHANNELS.RECORDING_REGION_SELECTED, (_e, region) => callback(region))
+    },
+    removeRegionSelectedListener: () => {
+      ipcRenderer.removeAllListeners(IPC_CHANNELS.RECORDING_REGION_SELECTED)
+    },
+    // Crash safety
+    initTemp: (mimeType, sourceName) => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_INIT_TEMP, mimeType, sourceName),
+    writeChunk: (chunkBuffer) => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_WRITE_CHUNK, chunkBuffer),
+    finalize: (mimeType) => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_FINALIZE, mimeType),
+    checkRecovery: () => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_CHECK_RECOVERY),
+    recoverRecording: (sessionId) => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_RECOVER, sessionId),
+    discardRecovery: (sessionId) => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_DISCARD_RECOVERY, sessionId)
+  },
+  app: {
+    onForceMode: (callback) => {
+      ipcRenderer.on(IPC_CHANNELS.APP_FORCE_MODE, (_event, mode) => callback(mode))
+    },
+    removeForceModeListener: () => {
+      ipcRenderer.removeAllListeners(IPC_CHANNELS.APP_FORCE_MODE)
+    },
+    togglePin: () => ipcRenderer.invoke(IPC_CHANNELS.APP_TOGGLE_PIN),
+    close: () => ipcRenderer.send(IPC_CHANNELS.APP_CLOSE),
+    hide: () => ipcRenderer.send(IPC_CHANNELS.APP_HIDE),
+    resize: (width: number, height: number) => ipcRenderer.send(IPC_CHANNELS.APP_RESIZE, width, height)
+  },
+  history: {
+    getAll: () => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_GET_ALL),
+    deleteEntry: (id) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_DELETE, id),
+    clear: () => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_CLEAR),
+    openFile: (filePath) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_OPEN_FILE, filePath),
+    showInFolder: (filePath) => ipcRenderer.send(IPC_CHANNELS.HISTORY_SHOW_IN_FOLDER, filePath),
+    readFileBuffer: (filePath) => ipcRenderer.invoke(IPC_CHANNELS.FILE_READ_BUFFER, filePath),
+    saveBuffer: (buffer, defaultName) => ipcRenderer.invoke(IPC_CHANNELS.FILE_SAVE_BUFFER, buffer, defaultName),
+    copyFile: (filePath) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_COPY_FILE, filePath)
+  },
+  settings: {
+    get: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET),
+    save: (settings) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE, settings),
+    selectDir: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SELECT_DIR)
+  },
+  upload: {
+    screenshot: (dataUrl) => ipcRenderer.invoke(IPC_CHANNELS.UPLOAD_SCREENSHOT, dataUrl),
+    file: (filePath, fileType) => ipcRenderer.invoke(IPC_CHANNELS.UPLOAD_FILE, filePath, fileType)
+  }
+}
+
+const overlayAPI: OverlayAPI = {
+  sendSelection: (region: SelectionRegion) => {
+    ipcRenderer.send(IPC_CHANNELS.OVERLAY_SELECTION_DONE, region)
+  },
+  sendCancel: () => {
+    ipcRenderer.send(IPC_CHANNELS.OVERLAY_CANCELLED)
+  },
+  onScreenBounds: (callback: (bounds: ScreenBounds) => void) => {
+    ipcRenderer.on(IPC_CHANNELS.SCREEN_BOUNDS, (_event, bounds) => callback(bounds))
+  },
+  onCaptured: (callback: (fullDataUrl: string, region: SelectionRegion, scaleFactor: number) => void) => {
+    ipcRenderer.on(IPC_CHANNELS.OVERLAY_CAPTURED, (_event, fullDataUrl, region, scaleFactor) => callback(fullDataUrl, region, scaleFactor))
+  },
+  removeCapturedListener: () => {
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.OVERLAY_CAPTURED)
+  },
+  copyFinal: (dataUrl) => ipcRenderer.invoke(IPC_CHANNELS.SCREENSHOT_COPY_FINAL, dataUrl),
+  saveFinal: (dataUrl) => ipcRenderer.invoke(IPC_CHANNELS.SCREENSHOT_SAVE_FINAL, dataUrl),
+  uploadScreenshot: (dataUrl) => ipcRenderer.invoke(IPC_CHANNELS.UPLOAD_SCREENSHOT, dataUrl),
+  ocrRecognize: (imageDataUrl) => ipcRenderer.invoke(IPC_CHANNELS.OCR_RECOGNIZE, imageDataUrl)
+}
+
+const annotationOverlayAPI: AnnotationOverlayAPI = {
+  onModeChange: (callback: (mode: AnnotationMode) => void) => {
+    ipcRenderer.on(IPC_CHANNELS.ANNOTATION_OVERLAY_MODE, (_event, mode) => callback(mode))
+  },
+  removeModeListener: () => {
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.ANNOTATION_OVERLAY_MODE)
+  },
+  toggle: () => {
+    ipcRenderer.send(IPC_CHANNELS.ANNOTATION_OVERLAY_TOGGLE)
+  },
+  stopRecording: () => {
+    ipcRenderer.send(IPC_CHANNELS.ANNOTATION_STOP_RECORDING)
+  },
+  sendCommand: (command) => {
+    ipcRenderer.send(IPC_CHANNELS.ANNOTATION_COMMAND, command)
+  },
+  onCommand: (callback) => {
+    ipcRenderer.on(IPC_CHANNELS.ANNOTATION_COMMAND, (_e, command) => callback(command))
+  },
+  removeCommandListener: () => {
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.ANNOTATION_COMMAND)
+  },
+  ocrCaptureRegion: (region) => ipcRenderer.invoke(IPC_CHANNELS.OCR_CAPTURE_REGION, region)
+}
+
+contextBridge.exposeInMainWorld('electronAPI', api)
+contextBridge.exposeInMainWorld('overlayAPI', overlayAPI)
+contextBridge.exposeInMainWorld('annotationOverlayAPI', annotationOverlayAPI)

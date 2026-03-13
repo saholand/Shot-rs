@@ -1,0 +1,72 @@
+{
+  "name": "shotirs",
+  "version": "1.0.0",
+  "description": "Fast screenshot and screen recording tool",
+  "author": "Shotırs",
+  "productName": "Shotırs",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "dist": "electron-vite build && electron-builder --win",
+    "dist:portable": "electron-vite build && electron-builder --win portable",
+    "dist:nsis": "electron-vite build && electron-builder --win nsis"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tesseract.js": "^7.0.0"
+  },
+  "build": {
+    "appId": "com.shotirs.app",
+    "productName": "Shotırs",
+    "directories": {
+      "buildResources": "build",
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "resources/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Shotırs"
+    },
+    "portable": {
+      "artifactName": "Shotirs-${version}-portable.exe"
+    }
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^31.7.7",
+    "electron-builder": "^26.8.1",
+    "electron-vite": "^2.3.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}

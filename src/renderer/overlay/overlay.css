@@ -1,0 +1,410 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #overlay-root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  cursor: crosshair;
+  user-select: none;
+}
+
+.overlay-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.overlay-editing {
+  cursor: default;
+  background: rgba(0, 0, 0, 0.01);
+}
+
+/* ── Dim overlay areas ─────────────────────────── */
+
+.overlay-dim {
+  position: fixed;
+  background: rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.overlay-dim-full {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* ── Selection border & indicators ─────────────── */
+
+.selection-border {
+  position: fixed;
+  border: 2px solid #4fa3f7;
+  pointer-events: none;
+}
+
+.selection-border.selecting {
+  border-style: solid;
+}
+
+.selection-border.confirmed {
+  border-style: solid;
+  box-shadow: 0 0 0 1px rgba(79, 163, 247, 0.4);
+}
+
+.selection-size {
+  position: fixed;
+  color: #fff;
+  font-family: monospace;
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 2px 6px;
+  border-radius: 3px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.selection-hint {
+  position: fixed;
+  transform: translateX(-50%);
+  color: #ccc;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.75);
+  padding: 4px 10px;
+  border-radius: 4px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* ── Resize handles ───────────────────────────── */
+
+.selection-handle {
+  position: fixed;
+  background: #4fa3f7;
+  border: 1.5px solid #fff;
+  border-radius: 2px;
+  z-index: 15;
+}
+
+.selection-handle:hover {
+  background: #3d8de5;
+}
+
+.selection-move-area {
+  position: fixed;
+  cursor: move;
+  z-index: 5;
+}
+
+.selection-actions-bar {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 20;
+  animation: ft-slide-in 0.15s ease;
+}
+
+.selection-action-btn {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s;
+}
+
+.selection-confirm-btn {
+  background: rgba(40, 167, 69, 0.9);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.selection-confirm-btn:hover {
+  background: rgba(40, 167, 69, 1);
+  transform: scale(1.05);
+}
+
+.selection-adjust-hint {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 11px;
+  color: #ccc;
+  background: rgba(0, 0, 0, 0.75);
+  padding: 4px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ── Capture loading indicator ─────────────────── */
+
+.capture-loading {
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 6px 14px;
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+/* ── Editing canvas ────────────────────────────── */
+
+.editing-canvas {
+  display: block;
+  z-index: 10;
+  box-shadow: 0 0 0 2px #4fa3f7;
+}
+
+.editing-text-box {
+  z-index: 20;
+  display: flex;
+  align-items: stretch;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.editing-text-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  background: rgba(79, 163, 247, 0.8);
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.editing-text-handle:active {
+  cursor: grabbing;
+  background: rgba(79, 163, 247, 1);
+}
+
+.editing-text-grip {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 10px;
+  letter-spacing: -2px;
+}
+
+.editing-text-input {
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  border: 1px solid #4fa3f7;
+  border-left: none;
+  outline: none;
+  font-family: sans-serif;
+  font-size: 16px;
+  padding: 4px 8px;
+  min-width: 120px;
+  border-radius: 0 4px 4px 0;
+}
+
+/* ── Floating Toolbar ──────────────────────────── */
+
+.ft-bar {
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(20, 20, 36, 0.95);
+  border: 1px solid rgba(79, 163, 247, 0.3);
+  border-radius: 8px;
+  padding: 4px 6px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  animation: ft-slide-in 0.15s ease;
+}
+
+.ft-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ft-sep {
+  width: 1px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 0 4px;
+}
+
+.ft-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #ccc;
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.ft-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.ft-btn:active {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.ft-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.ft-btn:disabled:hover {
+  background: transparent;
+  color: #ccc;
+}
+
+.ft-tool.ft-active {
+  background: rgba(79, 163, 247, 0.25);
+  border-color: #4fa3f7;
+  color: #4fa3f7;
+}
+
+.ft-action {
+  width: 32px;
+  height: 32px;
+}
+
+.ft-action:hover {
+  background: rgba(79, 163, 247, 0.2);
+  border-color: rgba(79, 163, 247, 0.4);
+  color: #4fa3f7;
+}
+
+.ft-share {
+  color: #5bdb7e;
+}
+
+.ft-share:hover {
+  background: rgba(40, 167, 69, 0.2);
+  border-color: rgba(40, 167, 69, 0.4);
+  color: #5bdb7e;
+}
+
+.ft-close {
+  color: #888;
+}
+
+.ft-close:hover {
+  background: rgba(220, 53, 69, 0.2);
+  color: #f77;
+}
+
+.ft-color {
+  width: 18px;
+  height: 18px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  padding: 0;
+}
+
+.ft-color:hover {
+  transform: scale(1.2);
+}
+
+.ft-color-active {
+  border-color: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+  transform: scale(1.15);
+}
+
+/* ── Toast notification ────────────────────────── */
+
+.ft-toast {
+  z-index: 110;
+  transform: translateX(-50%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 4px;
+  pointer-events: none;
+  white-space: nowrap;
+  animation: ft-toast-in 0.2s ease;
+}
+
+.ft-toast-success {
+  background: rgba(40, 167, 69, 0.9);
+  color: #fff;
+}
+
+.ft-toast-error {
+  background: rgba(220, 53, 69, 0.9);
+  color: #fff;
+}
+
+@keyframes ft-slide-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ft-toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ── Eyedropper loupe ─────────────────────────── */
+
+.eyedropper-loupe {
+  pointer-events: none;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.eyedropper-zoom {
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  image-rendering: pixelated;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+}
+
+.eyedropper-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.85);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 11px;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.eyedropper-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+}
+
+.eyedropper-hex {
+  text-transform: uppercase;
+}
