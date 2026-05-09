@@ -161,6 +161,7 @@ export const tr: Record<string, string> = {
   'toolbar.text': 'Metin',
   'toolbar.blur': 'Bulanık',
   'toolbar.eyedropper': 'Damlalık',
+  'toolbar.eraser': 'Silgi (sürükle-sil)',
   'toolbar.ocr': 'OCR',
   'toolbar.undo': 'Geri Al',
   'toolbar.undoShortcut': 'Geri Al (Ctrl+Z)',
@@ -181,6 +182,10 @@ export const tr: Record<string, string> = {
   'toolbar.blurLow': 'Az',
   'toolbar.blurMed': 'Orta',
   'toolbar.blurHigh': 'Çok',
+  'toolbar.eraserSize': 'Silgi boyutu',
+  'toolbar.eraserSmall': 'Küçük',
+  'toolbar.eraserMed': 'Orta',
+  'toolbar.eraserLarge': 'Büyük',
   'toolbar.customColor': 'Özel renk',
   'toolbar.recent': 'Son kullanılan',
 
@@ -206,6 +211,11 @@ export const tr: Record<string, string> = {
   'liveToolbar.moveDrag': 'Taşı (sürükle)',
   'liveToolbar.textPlaceholder': 'Metin yaz, Enter ile ekle',
   'liveToolbar.blur': 'Bulanıklaştır',
+  'liveToolbar.highlightCursor': 'Fosforlu imleç (kayıtta görünür)',
+  'liveToolbar.highlightCursorSize': 'Kalınlık',
+  'liveToolbar.highlightCursorSmall': 'İnce',
+  'liveToolbar.highlightCursorMed': 'Orta',
+  'liveToolbar.highlightCursorLarge': 'Kalın',
 
   // ── Source Picker ──
   'sourcePicker.loading': 'Kaynaklar yükleniyor...',

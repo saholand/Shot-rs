@@ -65,9 +65,15 @@ export const IPC_CHANNELS = {
   ANNOTATION_MODE_CHANGED: 'annotation:mode-changed',
   ANNOTATION_STOP_RECORDING: 'annotation:stop-recording',
   ANNOTATION_COMMAND: 'annotation:command',
+  ANNOTATION_TOOLBAR_RESIZE: 'annotation:toolbar-resize',
 
   // Quick recording
   RECORDING_QUICK_START: 'recording:quick-start',
+
+  // Highlighter cursor (during recording)
+  HIGHLIGHTER_CURSOR_TOGGLE: 'highlighter-cursor:toggle',
+  HIGHLIGHTER_CURSOR_UPDATE: 'highlighter-cursor:update',
+  HIGHLIGHTER_CURSOR_POS: 'highlighter-cursor:pos',
 
   // Region recording
   RECORDING_SELECT_REGION: 'recording:select-region',

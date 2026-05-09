@@ -161,6 +161,7 @@ export const en: Record<string, string> = {
   'toolbar.text': 'Text',
   'toolbar.blur': 'Blur',
   'toolbar.eyedropper': 'Eyedropper',
+  'toolbar.eraser': 'Eraser (drag-to-erase)',
   'toolbar.ocr': 'OCR',
   'toolbar.undo': 'Undo',
   'toolbar.undoShortcut': 'Undo (Ctrl+Z)',
@@ -181,6 +182,10 @@ export const en: Record<string, string> = {
   'toolbar.blurLow': 'Low',
   'toolbar.blurMed': 'Med',
   'toolbar.blurHigh': 'High',
+  'toolbar.eraserSize': 'Eraser size',
+  'toolbar.eraserSmall': 'Small',
+  'toolbar.eraserMed': 'Med',
+  'toolbar.eraserLarge': 'Large',
   'toolbar.customColor': 'Custom color',
   'toolbar.recent': 'Recent',
 
@@ -206,6 +211,11 @@ export const en: Record<string, string> = {
   'liveToolbar.moveDrag': 'Move (drag)',
   'liveToolbar.textPlaceholder': 'Type text, press Enter to add',
   'liveToolbar.blur': 'Blur',
+  'liveToolbar.highlightCursor': 'Highlighter cursor (shows in recording)',
+  'liveToolbar.highlightCursorSize': 'Size',
+  'liveToolbar.highlightCursorSmall': 'Thin',
+  'liveToolbar.highlightCursorMed': 'Medium',
+  'liveToolbar.highlightCursorLarge': 'Thick',
 
   // ── Source Picker ──
   'sourcePicker.loading': 'Loading sources...',

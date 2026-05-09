@@ -8,6 +8,8 @@ type LiveTool = 'pen' | 'arrow' | 'rectangle' | 'line' | 'highlight' | 'cover' |
 type StrokeWidth = 'thin' | 'medium' | 'thick'
 type FontSize = 'small' | 'medium' | 'large'
 type ArrowStyle = 'filled' | 'outline'
+type EraserSize = 'small' | 'medium' | 'large'
+type HighlighterThickness = 'small' | 'medium' | 'large'
 
 const PRESET_COLORS = ['#ff0000', '#4fa3f7', '#28a745', '#ffc107', '#ffffff', '#000000']
 const RECENT_COLORS_LIMIT = 4
@@ -29,8 +31,15 @@ const ARROW_STYLES: { id: ArrowStyle; label: string }[] = [
   { id: 'outline', label: t('toolbar.arrowOutline') }
 ]
 
-/** Tools that have something to show in the sub-bar. */
-const TOOLS_WITH_OPTIONS = new Set<LiveTool>(['pen', 'highlight', 'arrow', 'rectangle', 'line', 'text'])
+const ERASER_SIZES: { id: EraserSize; label: string; dot: number }[] = [
+  { id: 'small', label: t('toolbar.eraserSmall'), dot: 6 },
+  { id: 'medium', label: t('toolbar.eraserMed'), dot: 10 },
+  { id: 'large', label: t('toolbar.eraserLarge'), dot: 14 }
+]
+
+/** Tools that have something to show in the sub-bar. Note: in live mode
+ *  the eraser is named 'move' for legacy reasons. */
+const TOOLS_WITH_OPTIONS = new Set<string>(['pen', 'highlight', 'arrow', 'rectangle', 'line', 'text', 'move'])
 
 function isHexColor(s: string): boolean {
   return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(s.trim())
@@ -43,12 +52,13 @@ export function AnnotationToolbarApp() {
   const [strokeWidth, setStrokeWidth] = useState<StrokeWidth>('medium')
   const [fontSize, setFontSize] = useState<FontSize>('medium')
   const [arrowStyle, setArrowStyle] = useState<ArrowStyle>('filled')
+  const [eraserSize, setEraserSize] = useState<EraserSize>('medium')
+  const [highlighterEnabled, setHighlighterEnabled] = useState(false)
+  const [highlighterThickness, setHighlighterThickness] = useState<HighlighterThickness>('medium')
   const [textInput, setTextInput] = useState('')
-  const [colorPickerOpen, setColorPickerOpen] = useState(false)
-  const [hexInput, setHexInput] = useState(activeColor)
 
   const textInputRef = useRef<HTMLInputElement>(null)
-  const colorPopoverRef = useRef<HTMLDivElement>(null)
+  const nativeColorRef = useRef<HTMLInputElement>(null)
 
   const TOOLS: { id: LiveTool; label: string; icon: string; svgCustom?: boolean }[] = [
     { id: 'pen', label: t('toolbar.pen'), icon: 'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z' },
@@ -94,6 +104,46 @@ export function AnnotationToolbarApp() {
     sendCommand({ type: 'set-arrow-style', value })
   }, [sendCommand])
 
+  const handleEraserSizeChange = useCallback((value: EraserSize) => {
+    setEraserSize(value)
+    sendCommand({ type: 'set-eraser-size', value })
+  }, [sendCommand])
+
+  // Highlighter cursor — toggles a fluorescent overlay disc following the
+  // cursor. The disc color tracks the active draw color; thickness has its
+  // own sub-bar.
+  const pushHighlighterState = useCallback((enabled: boolean, color: string, thickness: HighlighterThickness) => {
+    if (enabled) {
+      window.electronAPI.recording.setHighlighterCursor({ enabled: true, color, thickness })
+    } else {
+      window.electronAPI.recording.setHighlighterCursor({ enabled: false, color, thickness })
+    }
+  }, [])
+
+  const handleHighlighterToggle = useCallback(() => {
+    const next = !highlighterEnabled
+    setHighlighterEnabled(next)
+    pushHighlighterState(next, activeColor, highlighterThickness)
+  }, [highlighterEnabled, activeColor, highlighterThickness, pushHighlighterState])
+
+  const handleHighlighterThicknessChange = useCallback((value: HighlighterThickness) => {
+    setHighlighterThickness(value)
+    if (highlighterEnabled) {
+      window.electronAPI.recording.updateHighlighterCursor({ enabled: true, color: activeColor, thickness: value })
+    }
+  }, [highlighterEnabled, activeColor])
+
+  // Keep the highlighter overlay in sync when the user picks a new color
+  useEffect(() => {
+    if (highlighterEnabled) {
+      window.electronAPI.recording.updateHighlighterCursor({
+        enabled: true,
+        color: activeColor,
+        thickness: highlighterThickness
+      })
+    }
+  }, [activeColor, highlighterEnabled, highlighterThickness])
+
   const handleUndo = useCallback(() => sendCommand({ type: 'undo' }), [sendCommand])
   const handleClear = useCallback(() => sendCommand({ type: 'clear' }), [sendCommand])
   const handleCloseDraw = useCallback(() => window.annotationOverlayAPI.toggle(), [])
@@ -113,28 +163,10 @@ export function AnnotationToolbarApp() {
     }
   }, [activeTool])
 
-  // Sync hex input with active color when picker opens
-  useEffect(() => { setHexInput(activeColor) }, [activeColor])
-
-  // Close color picker on outside click / escape
-  useEffect(() => {
-    if (!colorPickerOpen) return
-    const onDown = (e: MouseEvent) => {
-      const target = e.target as HTMLElement
-      if (!target.closest('.la-color-popover') && !target.closest('.la-color-trigger')) {
-        setColorPickerOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [colorPickerOpen])
-
   // Keyboard shortcuts — block all other keys to prevent visual artifacts
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (activeTool === 'text' && document.activeElement === textInputRef.current) return
-      const inHex = document.activeElement?.classList.contains('la-color-hex-input')
-      if (inHex) return
 
       if (e.ctrlKey && e.key === 'z') {
         e.preventDefault(); e.stopPropagation()
@@ -143,7 +175,6 @@ export function AnnotationToolbarApp() {
       }
       if (e.key === 'Escape') {
         e.preventDefault(); e.stopPropagation()
-        if (colorPickerOpen) { setColorPickerOpen(false); return }
         handleCloseDraw()
         return
       }
@@ -151,7 +182,7 @@ export function AnnotationToolbarApp() {
     }
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
-  }, [handleUndo, handleCloseDraw, activeTool, colorPickerOpen])
+  }, [handleUndo, handleCloseDraw, activeTool])
 
   // Send initial state to canvas on mount
   useEffect(() => {
@@ -162,19 +193,8 @@ export function AnnotationToolbarApp() {
     sendCommand({ type: 'set-arrow-style', value: 'filled' })
   }, [sendCommand])
 
-  const handleHexCommit = () => {
-    let v = hexInput.trim()
-    if (!v.startsWith('#')) v = '#' + v
-    if (isHexColor(v)) {
-      handleColorChange(v)
-      setColorPickerOpen(false)
-    } else {
-      setHexInput(activeColor)
-    }
-  }
-
   // Sub-bar content per tool
-  const showSubbar = activeTool ? TOOLS_WITH_OPTIONS.has(activeTool as LiveTool) : false
+  const showSubbar = (activeTool ? TOOLS_WITH_OPTIONS.has(activeTool as LiveTool) : false) || highlighterEnabled
 
   const renderStroke = () => (
     <div className="la-sub-group">
@@ -222,6 +242,43 @@ export function AnnotationToolbarApp() {
     </div>
   )
 
+  const renderEraser = () => (
+    <div className="la-sub-group">
+      <span className="la-sub-label">{t('toolbar.eraserSize')}</span>
+      {ERASER_SIZES.map(e => (
+        <button
+          key={e.id}
+          className={`la-stroke-btn ${eraserSize === e.id ? 'la-stroke-active' : ''}`}
+          onClick={() => handleEraserSizeChange(e.id)}
+          title={e.label}
+        >
+          <span className="la-stroke-dot" style={{ width: e.dot, height: e.dot }} />
+        </button>
+      ))}
+    </div>
+  )
+
+  const HIGHLIGHTER_SIZES: { id: HighlighterThickness; dot: number; label: string }[] = [
+    { id: 'small', dot: 6, label: t('liveToolbar.highlightCursorSmall') },
+    { id: 'medium', dot: 10, label: t('liveToolbar.highlightCursorMed') },
+    { id: 'large', dot: 14, label: t('liveToolbar.highlightCursorLarge') }
+  ]
+  const renderHighlighterCursor = () => (
+    <div className="la-sub-group">
+      <span className="la-sub-label">{t('liveToolbar.highlightCursorSize')}</span>
+      {HIGHLIGHTER_SIZES.map(h => (
+        <button
+          key={h.id}
+          className={`la-stroke-btn ${highlighterThickness === h.id ? 'la-stroke-active' : ''}`}
+          onClick={() => handleHighlighterThicknessChange(h.id)}
+          title={h.label}
+        >
+          <span className="la-stroke-dot" style={{ width: h.dot, height: h.dot, background: activeColor }} />
+        </button>
+      ))}
+    </div>
+  )
+
   const subbar = (() => {
     switch (activeTool) {
       case 'pen':
@@ -239,8 +296,13 @@ export function AnnotationToolbarApp() {
         )
       case 'text':
         return renderFont()
+      case 'move':
+        // Live mode legacy: 'move' is the eraser tool
+        return renderEraser()
       default:
-        return null
+        // No tool with options selected — but if highlighter cursor is on,
+        // show its thickness selector instead of an empty sub-bar.
+        return highlighterEnabled ? renderHighlighterCursor() : null
     }
   })()
 
@@ -343,14 +405,49 @@ export function AnnotationToolbarApp() {
             onClick={() => handleColorChange(color)}
           />
         ))}
+        {/* Recent custom colors (max 4) — inline so they don't push the
+            toolbar layout into a third row that overflows the window. */}
+        {recentColors.map(c => (
+          <button
+            key={c}
+            className={`la-color la-color-recent ${activeColor.toLowerCase() === c.toLowerCase() ? 'la-color-active' : ''}`}
+            style={{ background: c }}
+            onClick={() => handleColorChange(c)}
+            title={c}
+          />
+        ))}
         <button
           className="la-color-trigger"
-          onClick={() => setColorPickerOpen(o => !o)}
+          onClick={() => nativeColorRef.current?.click()}
           title={t('toolbar.customColor')}
           style={{ backgroundColor: activeColor }}
         >
           <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
             <path d="M12 5v14M5 12h14" />
+          </svg>
+        </button>
+        <input
+          ref={nativeColorRef}
+          type="color"
+          className="la-color-native-hidden"
+          value={isHexColor(activeColor) ? activeColor : '#ff0000'}
+          onChange={e => handleColorChange(e.target.value)}
+        />
+
+        <div className="la-sep" />
+
+        {/* Highlighter cursor toggle — fluorescent disc follows the
+            cursor in the recording, color tracks the active draw color. */}
+        <button
+          className={`la-btn ${highlighterEnabled ? 'la-btn-active' : ''}`}
+          onClick={handleHighlighterToggle}
+          title={t('liveToolbar.highlightCursor')}
+          style={highlighterEnabled ? { color: activeColor, borderColor: activeColor } : undefined}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="4" fill="currentColor" opacity="0.55" />
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 1v3M12 20v3M1 12h3M20 12h3" />
           </svg>
         </button>
 
@@ -376,51 +473,6 @@ export function AnnotationToolbarApp() {
         )}
       </div>
 
-      {/* ── Custom color popover ──────────────────────────── */}
-      {colorPickerOpen && (
-        <div ref={colorPopoverRef} className="la-color-popover">
-          <div className="la-color-popover-header">{t('toolbar.customColor')}</div>
-          <div className="la-color-popover-row">
-            <input
-              type="color"
-              className="la-color-native"
-              value={isHexColor(activeColor) ? activeColor : '#ff0000'}
-              onChange={e => handleColorChange(e.target.value)}
-            />
-            <input
-              type="text"
-              className="la-color-hex-input"
-              value={hexInput}
-              onChange={e => setHexInput(e.target.value)}
-              onKeyDown={e => {
-                e.stopPropagation()
-                if (e.key === 'Enter') handleHexCommit()
-                if (e.key === 'Escape') setColorPickerOpen(false)
-              }}
-              onBlur={handleHexCommit}
-              placeholder="#RRGGBB"
-              spellCheck={false}
-              autoFocus
-            />
-          </div>
-          {recentColors.length > 0 && (
-            <>
-              <div className="la-color-popover-sub">{t('toolbar.recent')}</div>
-              <div className="la-color-popover-recent">
-                {recentColors.map(c => (
-                  <button
-                    key={c}
-                    className="la-color"
-                    style={{ background: c }}
-                    onClick={() => { handleColorChange(c); setColorPickerOpen(false) }}
-                    title={c}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      )}
     </div>
   )
 }

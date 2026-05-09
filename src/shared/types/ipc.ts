@@ -42,6 +42,20 @@ export interface RecordingRegionPayload {
   displayBounds: { x: number; y: number; width: number; height: number } | null
 }
 
+/** Cursor position for the highlighter cursor overlay. */
+export interface HighlighterPosPayload {
+  /** Window-local screen coordinates (the overlay covers full display). */
+  x: number
+  y: number
+}
+
+/** State broadcast to the highlighter cursor overlay window. */
+export interface HighlighterCursorState {
+  enabled: boolean
+  color: string
+  thickness: 'small' | 'medium' | 'large'
+}
+
 export interface ExportResult {
   success: boolean
   action: 'clipboard' | 'file' | 'capture'
@@ -98,6 +112,9 @@ export interface ElectronAPI {
     checkRecovery: () => Promise<RecoverableRecording[]>
     recoverRecording: (sessionId: string) => Promise<RecordingResult>
     discardRecovery: (sessionId: string) => Promise<{ success: boolean }>
+    // Highlighter cursor
+    setHighlighterCursor: (state: HighlighterCursorState) => void
+    updateHighlighterCursor: (state: HighlighterCursorState) => void
   }
 
   app: {
@@ -143,6 +160,7 @@ export type AnnotationCommand =
   | { type: 'set-stroke-width'; value: 'thin' | 'medium' | 'thick' }
   | { type: 'set-font-size'; value: 'small' | 'medium' | 'large' }
   | { type: 'set-arrow-style'; value: 'filled' | 'outline' }
+  | { type: 'set-eraser-size'; value: 'small' | 'medium' | 'large' }
 
 export interface AnnotationOverlayAPI {
   onModeChange: (callback: (mode: AnnotationMode) => void) => void
@@ -153,6 +171,7 @@ export interface AnnotationOverlayAPI {
   onCommand: (callback: (command: AnnotationCommand) => void) => void
   removeCommandListener: () => void
   ocrCaptureRegion: (region: SelectionRegion) => Promise<OCRResult>
+  resizeToolbar: (expanded: boolean) => void
 }
 
 export interface RecoverableRecording {

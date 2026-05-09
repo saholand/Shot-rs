@@ -18,7 +18,8 @@
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "tesseract.js": "^7.0.0"
+    "tesseract.js": "^7.0.0",
+    "uiohook-napi": "^1.5.5"
   },
   "build": {
     "appId": "com.shotirs.app",
@@ -34,7 +35,8 @@
     "asarUnpack": [
       "resources/tessdata/**",
       "node_modules/tesseract.js/**",
-      "node_modules/tesseract.js-core/**"
+      "node_modules/tesseract.js-core/**",
+      "node_modules/uiohook-napi/**"
     ],
     "win": {
       "target": [

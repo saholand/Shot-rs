@@ -1,6 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '../shared/constants'
-import type { ElectronAPI, OverlayAPI, AnnotationOverlayAPI, AnnotationMode, ScreenBounds, SelectionRegion } from '../shared/types/ipc'
+import type {
+  ElectronAPI, OverlayAPI, AnnotationOverlayAPI, AnnotationMode, ScreenBounds, SelectionRegion,
+  HighlighterCursorState, HighlighterPosPayload
+} from '../shared/types/ipc'
 
 const RESULT_CHANNEL = IPC_CHANNELS.SCREENSHOT_RESULT
 const CAPTURED_CHANNEL = IPC_CHANNELS.SCREENSHOT_CAPTURED
@@ -65,7 +68,14 @@ const api: ElectronAPI = {
     finalize: (mimeType) => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_FINALIZE, mimeType),
     checkRecovery: () => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_CHECK_RECOVERY),
     recoverRecording: (sessionId) => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_RECOVER, sessionId),
-    discardRecovery: (sessionId) => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_DISCARD_RECOVERY, sessionId)
+    discardRecovery: (sessionId) => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_DISCARD_RECOVERY, sessionId),
+    // Highlighter cursor toggle (sent from live toolbar window)
+    setHighlighterCursor: (state: HighlighterCursorState) => {
+      ipcRenderer.send(IPC_CHANNELS.HIGHLIGHTER_CURSOR_TOGGLE, state)
+    },
+    updateHighlighterCursor: (state: HighlighterCursorState) => {
+      ipcRenderer.send(IPC_CHANNELS.HIGHLIGHTER_CURSOR_UPDATE, state)
+    }
   },
   app: {
     onForceMode: (callback) => {
@@ -150,9 +160,26 @@ const annotationOverlayAPI: AnnotationOverlayAPI = {
   removeCommandListener: () => {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.ANNOTATION_COMMAND)
   },
-  ocrCaptureRegion: (region) => ipcRenderer.invoke(IPC_CHANNELS.OCR_CAPTURE_REGION, region)
+  ocrCaptureRegion: (region) => ipcRenderer.invoke(IPC_CHANNELS.OCR_CAPTURE_REGION, region),
+  resizeToolbar: (expanded) => ipcRenderer.send(IPC_CHANNELS.ANNOTATION_TOOLBAR_RESIZE, expanded)
+}
+
+const highlighterCursorAPI = {
+  onUpdate: (callback: (state: HighlighterCursorState) => void) => {
+    ipcRenderer.on(IPC_CHANNELS.HIGHLIGHTER_CURSOR_UPDATE, (_e, state) => callback(state))
+  },
+  removeUpdateListener: () => {
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.HIGHLIGHTER_CURSOR_UPDATE)
+  },
+  onPos: (callback: (pos: HighlighterPosPayload) => void) => {
+    ipcRenderer.on(IPC_CHANNELS.HIGHLIGHTER_CURSOR_POS, (_e, pos) => callback(pos))
+  },
+  removePosListener: () => {
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.HIGHLIGHTER_CURSOR_POS)
+  }
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)
 contextBridge.exposeInMainWorld('overlayAPI', overlayAPI)
 contextBridge.exposeInMainWorld('annotationOverlayAPI', annotationOverlayAPI)
+contextBridge.exposeInMainWorld('highlighterCursorAPI', highlighterCursorAPI)

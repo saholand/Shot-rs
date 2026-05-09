@@ -172,8 +172,17 @@ html, body, #annotation-root, #toolbar-root {
 /* ── Standalone toolbar (own window) ────── */
 
 .la-toolbar-standalone {
-  position: static;
-  transform: none;
+  /* Defeat the base .la-toolbar fixed/translate positioning so the bar
+   * fills the BrowserWindow it's hosted in. Resetting position alone is
+   * not enough — left/bottom/transform must all be cleared because a
+   * later class (e.g. .la-toolbar-tall) might switch position back to
+   * relative, at which point those properties become live again. */
+  position: static !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  transform: none !important;
   width: 100%;
   height: 100%;
   justify-content: center;
@@ -253,12 +262,38 @@ html, body, #annotation-root, #toolbar-root {
 
 /* ── Two-row standalone toolbar ──────────────────── */
 
-.la-toolbar-tall {
-  flex-direction: column;
-  align-items: stretch;
+/* High-specificity selector to defeat any cascading conflicts from the
+ * shorter .la-toolbar / .la-toolbar-standalone rules above. */
+.la-toolbar.la-toolbar-standalone.la-toolbar-tall {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: center !important;
   gap: 4px;
   padding: 4px 8px 6px;
-  position: relative;
+  /* Stay static — position:relative would re-activate the inherited
+   * left:50%; transform:translateX(-50%) from .la-toolbar and shift the
+   * bar half off-screen. */
+  position: static !important;
+  width: 100%;
+  height: 100%;
+}
+
+.la-toolbar.la-toolbar-standalone.la-toolbar-tall > .la-toolbar-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 2px;
+  width: 100%;
+}
+
+.la-toolbar.la-toolbar-standalone.la-toolbar-tall > .la-subbar {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100%;
 }
 
 .la-toolbar-row {
@@ -275,8 +310,8 @@ html, body, #annotation-root, #toolbar-root {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  height: 28px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  height: 32px;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
   padding-top: 4px;
   -webkit-app-region: no-drag;
 }
@@ -311,11 +346,11 @@ html, body, #annotation-root, #toolbar-root {
 }
 
 .la-stroke-btn {
-  width: 28px;
-  height: 24px;
-  border: 1px solid transparent;
+  width: 30px;
+  height: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 5px;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.04);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -324,14 +359,15 @@ html, body, #annotation-root, #toolbar-root {
   -webkit-app-region: no-drag;
 }
 .la-stroke-btn:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 .la-stroke-active {
   background: rgba(79, 163, 247, 0.22);
-  border-color: rgba(79, 163, 247, 0.6);
+  border-color: rgba(79, 163, 247, 0.7);
 }
 .la-stroke-dot {
-  background: #cfd8e3;
+  background: #ffffff;
   border-radius: 50%;
   display: block;
 }
@@ -341,30 +377,31 @@ html, body, #annotation-root, #toolbar-root {
 
 .la-pill {
   padding: 3px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 12px;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.04);
   color: #cfd8e3;
   font-size: 11px;
   font-weight: 500;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   cursor: pointer;
   transition: all 0.1s;
-  min-width: 28px;
-  height: 22px;
+  min-width: 32px;
+  height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   -webkit-app-region: no-drag;
 }
 .la-pill:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
   color: #fff;
+  border-color: rgba(255, 255, 255, 0.28);
 }
 .la-pill-active {
-  background: rgba(79, 163, 247, 0.22);
+  background: rgba(79, 163, 247, 0.25);
   color: #4fa3f7;
-  border-color: rgba(79, 163, 247, 0.6);
+  border-color: rgba(79, 163, 247, 0.7);
 }
 
 /* ── Color trigger + popover (live toolbar) ─────── */
@@ -478,4 +515,39 @@ html, body, #annotation-root, #toolbar-root {
 .la-color-popover-recent {
   display: flex;
   gap: 6px;
+}
+
+/* Hidden native color picker — triggered by + button. Avoids the popover
+   clipping problem inside the small toolbar window. */
+.la-color-native-hidden {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+  border: none;
+  padding: 0;
+}
+
+/* Recent custom colors are rendered inline in the main row alongside the
+   preset palette. Slight visual differentiation so they're recognizable
+   as user picks vs presets. */
+.la-color-recent {
+  border: 2px dashed rgba(255, 255, 255, 0.45) !important;
+  width: 16px;
+  height: 16px;
+}
+
+/* ── Eraser preview circle ──────────────────────── */
+
+.la-eraser-preview {
+  position: fixed;
+  z-index: 9998;
+  border-radius: 50%;
+  pointer-events: none;
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  box-shadow:
+    inset 0 0 0 1.5px rgba(0, 0, 0, 0.55),
+    0 0 0 1.5px rgba(0, 0, 0, 0.55);
+  background: rgba(255, 255, 255, 0.04);
 }

@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { t } from '../../shared/i18n'
 import type { AnnotationTool } from '../../shared/types/annotation'
 import type { SelectionRegion } from '../../shared/types/ipc'
-import type { ToolOptions, StrokeWidth, FontSize, ArrowStyle } from '../annotation/hooks/useAnnotations'
+import type { ToolOptions, StrokeWidth, FontSize, ArrowStyle, EraserSize } from '../annotation/hooks/useAnnotations'
 
 interface FloatingToolbarProps {
   region: SelectionRegion
@@ -91,6 +91,13 @@ const ToolIcon = ({ id }: { id: string }) => {
           <circle cx="18" cy="4" r="2.5" fill="currentColor" stroke="none" />
         </svg>
       )
+    case 'eraser':
+      return (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 20H7L3 16l7-7 10 10z" />
+          <path d="M6 11l4-4" />
+        </svg>
+      )
     case 'ocr':
       return (
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -129,8 +136,14 @@ const BLUR_INTENSITIES: { value: number; label: string }[] = [
   { value: 24, label: t('toolbar.blurHigh') }
 ]
 
+const ERASER_SIZES: { id: EraserSize; label: string; dot: number }[] = [
+  { id: 'small', label: t('toolbar.eraserSmall'), dot: 6 },
+  { id: 'medium', label: t('toolbar.eraserMed'), dot: 10 },
+  { id: 'large', label: t('toolbar.eraserLarge'), dot: 14 }
+]
+
 /** Tools that have at least one option in the context sub-bar. */
-const TOOLS_WITH_OPTIONS: Set<AnnotationTool> = new Set(['pen', 'highlight', 'arrow', 'rectangle', 'line', 'text', 'blur'])
+const TOOLS_WITH_OPTIONS: Set<AnnotationTool> = new Set(['pen', 'highlight', 'arrow', 'rectangle', 'line', 'text', 'blur', 'eraser'])
 
 const TOOLBAR_MIN_WIDTH = 680
 const TOOLBAR_HEIGHT = 44
@@ -175,6 +188,7 @@ export function FloatingToolbar({
     { id: 'line', label: t('toolbar.line'), shortcut: 'L' },
     { id: 'text', label: t('toolbar.text'), shortcut: 'T' },
     { id: 'blur', label: t('toolbar.blur'), shortcut: 'B' },
+    { id: 'eraser', label: t('toolbar.eraser'), shortcut: 'E' },
     { id: 'eyedropper', label: t('toolbar.eyedropper'), shortcut: 'I' },
     { id: 'ocr', label: t('toolbar.ocr'), shortcut: 'O' }
   ]
@@ -312,6 +326,22 @@ export function FloatingToolbar({
     </div>
   )
 
+  const renderEraserGroup = () => (
+    <div className="ft-sub-group">
+      <span className="ft-sub-label">{t('toolbar.eraserSize')}</span>
+      {ERASER_SIZES.map(e => (
+        <button
+          key={e.id}
+          className={`ft-stroke-btn ${options.eraserSize === e.id ? 'ft-stroke-active' : ''}`}
+          onClick={() => onOptionsChange({ eraserSize: e.id })}
+          title={e.label}
+        >
+          <span className="ft-stroke-dot" style={{ width: e.dot, height: e.dot }} />
+        </button>
+      ))}
+    </div>
+  )
+
   const subbarContent = (() => {
     switch (activeTool) {
       case 'pen':
@@ -331,6 +361,8 @@ export function FloatingToolbar({
         return renderFontSizeGroup()
       case 'blur':
         return renderBlurGroup()
+      case 'eraser':
+        return renderEraserGroup()
       default:
         return null
     }

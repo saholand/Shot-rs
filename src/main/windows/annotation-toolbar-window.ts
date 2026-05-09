@@ -1,14 +1,22 @@
-import { BrowserWindow, screen } from 'electron'
+import { BrowserWindow, screen, ipcMain } from 'electron'
 import { join } from 'path'
+import { IPC_CHANNELS } from '../../shared/constants'
 
 let toolbarWindow: BrowserWindow | null = null
 
 /**
  * Toolbar window dimensions.
  * Two rows: main controls + context sub-bar (tool-specific options).
+ *
+ * Height grows on demand when the renderer requests it (e.g. when the
+ * custom-color popover opens and needs ~150px above the toolbar that
+ * the regular bounds would clip).
  */
 const TOOLBAR_WIDTH = 820
 const TOOLBAR_HEIGHT = 92
+const TOOLBAR_HEIGHT_EXPANDED = 260
+let toolbarBaseY: number | null = null
+let toolbarBaseHeight = TOOLBAR_HEIGHT
 
 export function createAnnotationToolbar(): BrowserWindow {
   if (toolbarWindow && !toolbarWindow.isDestroyed()) {
@@ -31,6 +39,8 @@ export function createAnnotationToolbar(): BrowserWindow {
   const rawY = y + height - TOOLBAR_HEIGHT - margin
   const toolbarX = Math.max(x + 8, Math.min(rawX, x + width - effectiveWidth - 8))
   const toolbarY = Math.max(y + 8, Math.min(rawY, y + height - TOOLBAR_HEIGHT - 8))
+  toolbarBaseY = toolbarY
+  toolbarBaseHeight = TOOLBAR_HEIGHT
 
   toolbarWindow = new BrowserWindow({
     x: toolbarX,
@@ -63,9 +73,30 @@ export function createAnnotationToolbar(): BrowserWindow {
 
   toolbarWindow.on('closed', () => {
     toolbarWindow = null
+    toolbarBaseY = null
   })
 
   return toolbarWindow
+}
+
+/**
+ * Resize the toolbar window. Used when the renderer needs more vertical
+ * space (e.g. opening the custom-color popover). Keeps the toolbar's
+ * BOTTOM edge fixed so the toolbar doesn't visually jump.
+ */
+export function registerAnnotationToolbarIPC(): void {
+  ipcMain.on(IPC_CHANNELS.ANNOTATION_TOOLBAR_RESIZE, (_event, expanded: boolean) => {
+    if (!toolbarWindow || toolbarWindow.isDestroyed() || toolbarBaseY === null) return
+    const targetH = expanded ? TOOLBAR_HEIGHT_EXPANDED : TOOLBAR_HEIGHT
+    const bounds = toolbarWindow.getBounds()
+    const bottomEdge = toolbarBaseY + toolbarBaseHeight
+    toolbarWindow.setBounds({
+      x: bounds.x,
+      y: bottomEdge - targetH,
+      width: bounds.width,
+      height: targetH
+    })
+  })
 }
 
 export function showAnnotationToolbar(): void {

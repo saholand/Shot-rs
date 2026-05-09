@@ -3,7 +3,7 @@ import type { Annotation, AnnotationTool, Point } from '../../shared/types/annot
 import type { SelectionRegion } from '../../shared/types/ipc'
 import { renderAll, renderAnnotation } from '../annotation/render'
 import {
-  STROKE_WIDTH_FACTORS, FONT_SIZE_FACTORS,
+  STROKE_WIDTH_FACTORS, FONT_SIZE_FACTORS, ERASER_RADIUS,
   type ToolOptions
 } from '../annotation/hooks/useAnnotations'
 
@@ -17,6 +17,8 @@ interface EditingCanvasProps {
   options: ToolOptions
   onAddAnnotation: (annotation: Annotation) => void
   onMoveAnnotation: (id: string, dx: number, dy: number) => void
+  onDeleteAnnotation?: (id: string) => void
+  onEraseAt?: (center: Point, radius: number) => void
   onFrameMove?: (dx: number, dy: number) => void
   onColorPick?: (hex: string) => void
   onOCRRegion?: (regionDataUrl: string) => void
@@ -50,6 +52,8 @@ export function EditingCanvas({
   options,
   onAddAnnotation,
   onMoveAnnotation,
+  onDeleteAnnotation,
+  onEraseAt,
   onFrameMove,
   onColorPick,
   onOCRRegion
@@ -68,6 +72,11 @@ export function EditingCanvas({
   // Move tool state
   const [movingId, setMovingId] = useState<string | null>(null)
   const [moveStart, setMoveStart] = useState<Point | null>(null)
+
+  // Eraser state — held-and-drag erases whatever is under the cursor.
+  const erasingRef = useRef(false)
+  // Cursor screen position used to draw the eraser preview circle.
+  const [eraserCursor, setEraserCursor] = useState<{ x: number; y: number } | null>(null)
 
   // Frame drag state (move entire frame when no tool active)
   const [frameDragging, setFrameDragging] = useState(false)
@@ -341,6 +350,9 @@ export function EditingCanvas({
     if (activeTool !== 'eyedropper') {
       setEyedropperPos(null)
     }
+    if (activeTool !== 'eraser') {
+      setEraserCursor(null)
+    }
   }, [activeTool])
 
   // Mouse handlers
@@ -375,6 +387,17 @@ export function EditingCanvas({
           frameDragStartRef.current = { x: e.clientX, y: e.clientY }
         }
       }
+      return
+    }
+
+    // Eraser: drag-to-delete with partial-stroke split
+    if (activeTool === 'eraser') {
+      e.stopPropagation()
+      e.preventDefault()
+      erasingRef.current = true
+      const pt = toImageCoords(e)
+      const radius = ERASER_RADIUS[options.eraserSize] * scaleFactor
+      onEraseAt?.(pt, radius)
       return
     }
 
@@ -427,6 +450,20 @@ export function EditingCanvas({
       return
     }
 
+    // Eraser preview circle follows cursor whether or not button is down
+    if (activeTool === 'eraser') {
+      setEraserCursor({ x: e.clientX, y: e.clientY })
+    }
+
+    // Eraser drag — keep erasing as the cursor passes over annotations
+    if (activeTool === 'eraser' && erasingRef.current) {
+      e.stopPropagation()
+      const pt = toImageCoords(e)
+      const radius = ERASER_RADIUS[options.eraserSize] * scaleFactor
+      onEraseAt?.(pt, radius)
+      return
+    }
+
     if (!drawing) return
     e.stopPropagation()
 
@@ -444,6 +481,13 @@ export function EditingCanvas({
     if (activeTool === 'move' && movingId) {
       e.stopPropagation()
       setMoveStart(null)
+      return
+    }
+
+    // Eraser release
+    if (activeTool === 'eraser' && erasingRef.current) {
+      e.stopPropagation()
+      erasingRef.current = false
       return
     }
 
@@ -609,7 +653,18 @@ export function EditingCanvas({
     }
   }, [frameDragging, onFrameMove])
 
-  const cursor = activeTool === 'move' ? 'move' : activeTool === 'eyedropper' ? 'crosshair' : activeTool ? 'crosshair' : 'grab'
+  const cursor =
+    activeTool === 'eraser' ? 'none'  /* preview circle stands in for the cursor */
+    : activeTool === 'move' ? 'move'
+    : activeTool === 'eyedropper' ? 'crosshair'
+    : activeTool ? 'crosshair'
+    : 'grab'
+
+  // Eraser preview radius in CSS pixels. ERASER_RADIUS is image-space, so
+  // it's already in DIPs at scaleFactor 1. With scaleFactor>1 the canvas
+  // is scaled but visually still rendered at `region.width × region.height`,
+  // so the on-screen pixel radius is the image-space radius (no scale).
+  const eraserPreviewPx = ERASER_RADIUS[options.eraserSize]
 
   return (
     <>
@@ -629,6 +684,20 @@ export function EditingCanvas({
         onMouseUp={handleMouseUp}
         onClick={handleClick}
       />
+
+      {/* Eraser preview circle — follows cursor when eraser is active */}
+      {activeTool === 'eraser' && eraserCursor && (
+        <div
+          className="eraser-preview"
+          style={{
+            position: 'fixed',
+            left: eraserCursor.x - eraserPreviewPx,
+            top: eraserCursor.y - eraserPreviewPx,
+            width: eraserPreviewPx * 2,
+            height: eraserPreviewPx * 2
+          }}
+        />
+      )}
 
       {/* Eyedropper loupe */}
       {eyedropperPos && (

@@ -16,6 +16,7 @@ import { registerOCRIPC, getWorker, terminateWorker } from './ipc/ocr-ipc'
 import { registerScreenshotHotkey, registerRecordingHotkey, registerAnnotationHotkey, registerOCRHotkey, unregisterAll } from './services/hotkey'
 import { startOCRSelection, setOCRWorkerGetter } from './ipc/screenshot-ipc'
 import { toggleAnnotationDrawMode, getAnnotationOverlay, registerAnnotationOverlayIPC } from './windows/annotation-overlay-window'
+import { registerAnnotationToolbarIPC } from './windows/annotation-toolbar-window'
 import { createTray, destroyTray, updateTrayRecordingState } from './services/tray'
 import { setQuitting } from './services/app-state'
 import { getSetting } from './services/settings-store'
@@ -51,6 +52,7 @@ app.whenReady().then(() => {
   registerOCRIPC()
   registerMainWindowIPC()
   registerAnnotationOverlayIPC()
+  registerAnnotationToolbarIPC()
 
   createMainWindow()
   createTray()

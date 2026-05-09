@@ -270,9 +270,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
         // Canvas cropping pipeline: crop each frame to the selected region.
         // The desktop video stream is delivered at the source display's
         // PHYSICAL pixel resolution, not at the recording renderer's DPR.
-        // Using `window.devicePixelRatio` here would be wrong whenever the
-        // main window lives on a display with a different scale factor than
-        // the recorded display. Use the scale factor passed in from main.
+        // Use the scale factor passed in from main.
         const sf = displayScaleFactor || cropScaleFactorRef.current || window.devicePixelRatio || 1
 
         const video = document.createElement('video')
@@ -280,16 +278,12 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
         video.muted = true
         cropVideoRef.current = video
 
-        // Wait for video to be ready
         await new Promise<void>(resolve => {
           video.onloadedmetadata = () => resolve()
           if (video.readyState >= 1) resolve()
         })
         await video.play().catch(() => { /* autoplay may need a tick */ })
 
-        // Clamp the source rect against the actual video dimensions so a
-        // rounding drift between (logical * sf) and the native frame size
-        // doesn't push us out of bounds.
         const vw = video.videoWidth || Math.round(cropRegion.width * sf)
         const vh = video.videoHeight || Math.round(cropRegion.height * sf)
 
@@ -303,15 +297,11 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
         canvas.height = ch
         const ctx = canvas.getContext('2d')!
 
-        // Start frame loop. requestAnimationFrame is throttled or paused
-        // when the document is hidden; in that case we fall back to a low-
-        // rate setInterval so the recording keeps producing frames at a
-        // steady cadence even with the app minimized.
         let intervalHandle: ReturnType<typeof setInterval> | null = null
         const drawOnce = () => {
           try {
             ctx.drawImage(video, sx, sy, cw, ch, 0, 0, cw, ch)
-          } catch { /* video not ready yet */ }
+          } catch { /* video not ready */ }
         }
         const drawFrame = () => {
           drawOnce()
@@ -330,9 +320,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
           }
         }
         document.addEventListener('visibilitychange', onVisibility)
-        // Stash on the video element so cleanupStreams can detach it later
-        ;(video as HTMLVideoElement & { _onVis?: () => void; _interval?: ReturnType<typeof setInterval> | null })._onVis = onVisibility
-        ;(video as HTMLVideoElement & { _interval?: ReturnType<typeof setInterval> | null })._interval = intervalHandle
+        ;(video as HTMLVideoElement & { _onVis?: () => void })._onVis = onVisibility
         drawFrame()
 
         recordStream = canvas.captureStream(settings.videoFramerate)

@@ -5,6 +5,13 @@ import { renderAll, renderAnnotation } from '../annotation/render'
 type StrokeWidth = 'thin' | 'medium' | 'thick'
 type FontSize = 'small' | 'medium' | 'large'
 type ArrowStyle = 'filled' | 'outline'
+type EraserSize = 'small' | 'medium' | 'large'
+
+const ERASER_RADIUS_PX: Record<EraserSize, number> = {
+  small: 12,
+  medium: 24,
+  large: 48
+}
 
 interface Props {
   annotations: Annotation[]
@@ -13,8 +20,9 @@ interface Props {
   strokeWidth: StrokeWidth
   fontSize: FontSize
   arrowStyle: ArrowStyle
+  eraserSize: EraserSize
   onAddAnnotation: (annotation: Annotation) => void
-  onDeleteAnnotation: (id: string) => void
+  onEraseAt: (center: Point, radius: number) => void
   onMoveAnnotation: (id: string, dx: number, dy: number) => void
   drawMode: boolean
   onOCRStatus?: (status: { text: string; type: 'success' | 'error' } | null) => void
@@ -46,8 +54,9 @@ export function LiveAnnotationCanvas({
   strokeWidth,
   fontSize,
   arrowStyle,
+  eraserSize,
   onAddAnnotation,
-  onDeleteAnnotation,
+  onEraseAt,
   onMoveAnnotation,
   drawMode,
   onOCRStatus,
@@ -56,6 +65,8 @@ export function LiveAnnotationCanvas({
 }: Props) {
   const sw = STROKE_WIDTH_PX[strokeWidth]
   const fs = FONT_SIZE_PX[fontSize]
+  const eraserRadius = ERASER_RADIUS_PX[eraserSize]
+  const [eraserCursor, setEraserCursor] = useState<{ x: number; y: number } | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [drawing, setDrawing] = useState(false)
   const [startPoint, setStartPoint] = useState<Point | null>(null)
@@ -64,6 +75,10 @@ export function LiveAnnotationCanvas({
 
   // Drag state
   const dragRef = useRef<{ id: string; lastMouse: Point } | null>(null)
+
+  // Eraser is held-and-drag: while true, every mousemove deletes whatever
+  // annotation is under the cursor (Paint-style behavior).
+  const erasingRef = useRef(false)
 
   // Set canvas to screen size
   useEffect(() => {
@@ -76,6 +91,11 @@ export function LiveAnnotationCanvas({
       ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
     }
   }, [])
+
+  // Hide the eraser preview when the tool changes away from eraser
+  useEffect(() => {
+    if (activeTool !== 'move') setEraserCursor(null)
+  }, [activeTool])
 
   // Build preview annotation while drawing
   const getPreview = useCallback((): Annotation | null => {
@@ -185,11 +205,12 @@ export function LiveAnnotationCanvas({
     if (!drawMode || !activeTool) return
     e.preventDefault()
 
-    // Eraser mode — click to delete
+    // Eraser mode — start drag-erase. mouseUp ends it, mousemove keeps
+    // erasing whatever's under the cursor (Paint-style, partial-erase).
     if (activeTool === 'move') {
+      erasingRef.current = true
       const pt = toScreenCoords(e)
-      const id = hitTest(pt)
-      if (id) onDeleteAnnotation(id)
+      onEraseAt(pt, eraserRadius)
       return
     }
 
@@ -240,6 +261,19 @@ export function LiveAnnotationCanvas({
       return
     }
 
+    // Eraser preview circle follows cursor regardless of button state
+    if (activeTool === 'move') {
+      setEraserCursor({ x: e.clientX, y: e.clientY })
+    }
+
+    // Drag-erase: while the eraser is held down, partial-erase whatever
+    // the cursor passes over.
+    if (erasingRef.current && activeTool === 'move') {
+      const pt = toScreenCoords(e)
+      onEraseAt(pt, eraserRadius)
+      return
+    }
+
     if (!drawing) return
 
     const pt = toScreenCoords(e)
@@ -254,6 +288,12 @@ export function LiveAnnotationCanvas({
     // End drag
     if (dragRef.current) {
       dragRef.current = null
+      return
+    }
+
+    // End eraser stroke
+    if (erasingRef.current) {
+      erasingRef.current = false
       return
     }
 
@@ -321,16 +361,35 @@ export function LiveAnnotationCanvas({
     setFreehandPoints([])
   }
 
-  const cursor = !drawMode ? 'default' : activeTool === 'move' ? 'pointer' : activeTool === 'drag' ? 'grab' : activeTool === 'text' && pendingText ? 'text' : activeTool ? 'crosshair' : 'default'
+  const cursor =
+    !drawMode ? 'default'
+    : activeTool === 'move' ? 'none'  /* preview circle replaces cursor */
+    : activeTool === 'drag' ? 'grab'
+    : activeTool === 'text' && pendingText ? 'text'
+    : activeTool ? 'crosshair'
+    : 'default'
 
   return (
-    <canvas
-      ref={canvasRef}
-      className={`la-canvas ${drawMode ? 'la-canvas-draw' : 'la-canvas-passthrough'}`}
-      style={{ cursor }}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        className={`la-canvas ${drawMode ? 'la-canvas-draw' : 'la-canvas-passthrough'}`}
+        style={{ cursor }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+      />
+      {drawMode && activeTool === 'move' && eraserCursor && (
+        <div
+          className="la-eraser-preview"
+          style={{
+            left: eraserCursor.x - eraserRadius,
+            top: eraserCursor.y - eraserRadius,
+            width: eraserRadius * 2,
+            height: eraserRadius * 2
+          }}
+        />
+      )}
+    </>
   )
 }

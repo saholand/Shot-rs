@@ -30,7 +30,8 @@ export default defineConfig({
           main: resolve(__dirname, 'src/renderer/index.html'),
           overlay: resolve(__dirname, 'src/renderer/overlay.html'),
           'annotation-overlay': resolve(__dirname, 'src/renderer/annotation-overlay.html'),
-          'annotation-toolbar': resolve(__dirname, 'src/renderer/annotation-toolbar.html')
+          'annotation-toolbar': resolve(__dirname, 'src/renderer/annotation-toolbar.html'),
+          'highlighter-cursor': resolve(__dirname, 'src/renderer/highlighter-cursor.html')
         }
       }
     }

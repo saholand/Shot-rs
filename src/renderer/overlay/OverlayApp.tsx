@@ -65,7 +65,7 @@ export function OverlayApp() {
 
   const {
     annotations, activeTool, activeColor, recentColors, options,
-    addAnnotation, moveAnnotation, undo, setTool, setColor, setOptions
+    addAnnotation, moveAnnotation, deleteAnnotation, eraseAt, undo, setTool, setColor, setOptions
   } = useAnnotations()
 
   // Auto-confirm on selection done (back to original behavior)
@@ -361,7 +361,7 @@ export function OverlayApp() {
           const shortcuts: Record<string, typeof activeTool> = {
             v: 'move', p: 'pen', h: 'highlight', a: 'arrow',
             r: 'rectangle', l: 'line', t: 'text', b: 'blur',
-            i: 'eyedropper', o: 'ocr'
+            e: 'eraser', i: 'eyedropper', o: 'ocr'
           }
           const tool = shortcuts[e.key.toLowerCase()]
           if (tool) {
@@ -396,6 +396,8 @@ export function OverlayApp() {
           options={options}
           onAddAnnotation={addAnnotation}
           onMoveAnnotation={moveAnnotation}
+          onDeleteAnnotation={deleteAnnotation}
+          onEraseAt={eraseAt}
           onFrameMove={handleFrameMove}
           onColorPick={handleColorPick}
           onOCRRegion={handleOCRRegion}

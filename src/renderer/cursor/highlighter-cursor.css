@@ -1,0 +1,28 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body, #highlighter-root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  pointer-events: none;
+  cursor: none;
+}
+
+.hl-disc {
+  position: fixed;
+  top: 0;
+  left: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  /* Don't blend — pure overlay, just translucent. The radial gradient
+   * already does the soft fade. mix-blend-mode: screen would brighten
+   * underlying pixels (looks neon, not pale). */
+  filter: blur(0.5px);
+  /* Position is set via transform (left/top stay 0). transform is GPU-
+   * accelerated and doesn't trigger layout. */
+  will-change: transform;
+  /* Smooth size transition when thickness changes. No transition on
+   * transform — the rAF lerp in HighlighterCursorApp handles smoothness. */
+  transition: width 0.12s ease, height 0.12s ease, background 0.1s ease;
+}

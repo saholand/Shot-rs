@@ -15,7 +15,13 @@ import {
   initTempFile, writeChunk, finalizeTempFile,
   checkForRecovery, discardRecovery, getRecoveryFilePath
 } from '../recording/temp-file-manager'
+import { startMouseHook, stopMouseHook } from '../recording/mouse-hook'
+import {
+  createHighlighterCursorWindow, closeHighlighterCursorWindow,
+  pushHighlighterState, pushHighlighterPos, getHighlighterCursorWindow
+} from '../windows/highlighter-cursor-window'
 import type { RecordingResult } from '../../shared/types/recording'
+import type { HighlighterCursorState } from '../../shared/types/ipc'
 
 export function registerRecordingIPC(): void {
   // List available screens/windows
@@ -34,6 +40,18 @@ export function registerRecordingIPC(): void {
     createAnnotationOverlay()
     // Keep compact bar above the overlay
     setRecordingAlwaysOnTop(true)
+
+    // Spin up the mouse hook to push cursor positions to the highlighter
+    // overlay window. Best-effort — failures (missing native binary, AV)
+    // just disable the highlighter cursor's live tracking.
+    startMouseHook({
+      onMouseMove: (payload) => {
+        if (getHighlighterCursorWindow()) {
+          pushHighlighterPos(payload)
+        }
+      }
+    }).catch(err => console.warn('startMouseHook error:', err))
+
     return { success: true }
   })
 
@@ -42,6 +60,29 @@ export function registerRecordingIPC(): void {
     stopSession()
     closeAnnotationOverlay()
     setRecordingAlwaysOnTop(false)
+    stopMouseHook()
+    closeHighlighterCursorWindow()
+  })
+
+  // Highlighter cursor toggle / state updates from the live toolbar
+  ipcMain.on(IPC_CHANNELS.HIGHLIGHTER_CURSOR_TOGGLE, (_event, state: HighlighterCursorState) => {
+    console.log('[ipc] highlighter toggle:', state)
+    if (state.enabled) {
+      const win = createHighlighterCursorWindow()
+      // Push the current state both immediately AND on did-finish-load —
+      // accommodates race between create-and-toggle on a fresh window.
+      const sendNow = () => pushHighlighterState(state)
+      win.webContents.once('did-finish-load', sendNow)
+      if (!win.webContents.isLoading()) sendNow()
+    } else {
+      closeHighlighterCursorWindow()
+    }
+  })
+
+  ipcMain.on(IPC_CHANNELS.HIGHLIGHTER_CURSOR_UPDATE, (_event, state: HighlighterCursorState) => {
+    if (state.enabled) {
+      pushHighlighterState(state)
+    }
   })
 
   // Save recorded video buffer to file

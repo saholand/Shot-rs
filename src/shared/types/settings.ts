@@ -2,6 +2,14 @@ export type VideoFormat = 'webm' | 'mp4'
 export type VideoQuality = 'low' | 'medium' | 'high' | 'ultra'
 export type VideoFramerate = 24 | 30 | 60
 export type MagnifierZoom = 'low' | 'medium' | 'high'
+export type HighlighterThickness = 'small' | 'medium' | 'large'
+
+/** Diameter (in screen pixels at 1× DPI) of the highlighter cursor disc. */
+export const HIGHLIGHTER_DIAMETER: Record<HighlighterThickness, number> = {
+  small: 24,
+  medium: 40,
+  large: 64
+}
 
 /** Bitrate (bps) for each quality preset. */
 export const VIDEO_BITRATE: Record<VideoQuality, number> = {
@@ -43,6 +51,10 @@ export interface AppSettings {
   /** Capture system audio (desktop loopback) alongside mic. Windows-only;
    *  silently no-ops on platforms that don't expose loopback. */
   recordSystemAudio: boolean
+
+  // ── Highlighter cursor ──
+  highlighterCursorEnabled: boolean
+  highlighterCursorThickness: HighlighterThickness
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -62,7 +74,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   videoFormat: 'webm',
   videoQuality: 'medium',
   videoFramerate: 30,
-  recordSystemAudio: false
+  recordSystemAudio: false,
+  highlighterCursorEnabled: false,
+  highlighterCursorThickness: 'medium'
 }
 
 /**
