@@ -20,7 +20,6 @@ const TR: Record<string, string> = {
   // Dialogs
   'dialog.saveRecording': 'Kaydı Kaydet',
   'dialog.recoverRecording': 'Kaydı Kurtar',
-  'dialog.trimAndSave': 'Kes ve Kaydet',
   'dialog.selectDefaultSaveDir': 'Varsayılan kayıt klasörünü seç',
   'dialog.saveScreenshot': 'Ekran Görüntüsünü Kaydet',
 
@@ -65,7 +64,6 @@ const EN: Record<string, string> = {
   // Dialogs
   'dialog.saveRecording': 'Save Recording',
   'dialog.recoverRecording': 'Recover Recording',
-  'dialog.trimAndSave': 'Trim and Save',
   'dialog.selectDefaultSaveDir': 'Choose default save folder',
   'dialog.saveScreenshot': 'Save Screenshot',
 

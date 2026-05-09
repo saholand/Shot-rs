@@ -90,7 +90,6 @@ const api: ElectronAPI = {
     removeZoomGoListener: () => {
       ipcRenderer.removeAllListeners(IPC_CHANNELS.RECORDING_ZOOM_GO)
     },
-    trim: (payload) => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_TRIM, payload),
     toggleWebcam: (enabled: boolean) => ipcRenderer.send(IPC_CHANNELS.WEBCAM_TOGGLE, enabled)
   },
   app: {
@@ -111,8 +110,6 @@ const api: ElectronAPI = {
     clear: () => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_CLEAR),
     openFile: (filePath) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_OPEN_FILE, filePath),
     showInFolder: (filePath) => ipcRenderer.send(IPC_CHANNELS.HISTORY_SHOW_IN_FOLDER, filePath),
-    readFileBuffer: (filePath) => ipcRenderer.invoke(IPC_CHANNELS.FILE_READ_BUFFER, filePath),
-    saveBuffer: (buffer, defaultName) => ipcRenderer.invoke(IPC_CHANNELS.FILE_SAVE_BUFFER, buffer, defaultName),
     copyFile: (filePath) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_COPY_FILE, filePath)
   },
   settings: {

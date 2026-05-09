@@ -84,9 +84,6 @@ export const IPC_CHANNELS = {
   // Click-to-zoom (during recording) — toolbar tool driven, single channel
   RECORDING_ZOOM_GO: 'recording:zoom-go',
 
-  // Trim editor
-  RECORDING_TRIM: 'recording:trim',
-
   // Webcam preview window
   WEBCAM_TOGGLE: 'webcam:toggle',
   WEBCAM_CONFIG: 'webcam:config',
@@ -111,9 +108,6 @@ export const IPC_CHANNELS = {
   OCR_CAPTURE_REGION: 'ocr:capture-region',
   OCR_START: 'ocr:start',
 
-  // File operations (GIF export etc.)
-  FILE_READ_BUFFER: 'file:read-buffer',
-  FILE_SAVE_BUFFER: 'file:save-buffer',
   HISTORY_COPY_FILE: 'history:copy-file',
 
   // Production logger (renderer → main → file)

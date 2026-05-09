@@ -2,24 +2,7 @@
 process.stdout?.on?.('error', () => {})
 process.stderr?.on?.('error', () => {})
 
-// Last-resort error handlers. An uncaught exception or unhandled promise
-// rejection in the main process would otherwise either crash the app
-// silently (in production) or print a useless stack to a stderr that no
-// one is reading. Log to file (userData/logs/app.log) and keep the app
-// alive — Electron's default exit(1) on uncaught is hostile to a tray-
-// resident app.
-process.on('uncaughtException', (err) => {
-  try { console.error('[main] uncaughtException:', err) } catch { /* EPIPE */ }
-  // Lazy import — logger needs `app` ready, but uncaught can fire even
-  // before whenReady. The require is cheap and guarded inside the logger.
-  try { require('./services/logger').logError('main', 'uncaughtException', err) } catch { /* ignore */ }
-})
-process.on('unhandledRejection', (reason) => {
-  try { console.error('[main] unhandledRejection:', reason) } catch { /* EPIPE */ }
-  try { require('./services/logger').logError('main', 'unhandledRejection', reason) } catch { /* ignore */ }
-})
-
-import { app, BrowserWindow, protocol, net, screen } from 'electron'
+import { app, BrowserWindow, protocol, net, screen, ipcMain, shell } from 'electron'
 import { pathToFileURL } from 'url'
 import { resolve as resolvePath, relative as relativePath, extname, sep } from 'path'
 import { createMainWindow, getMainWindow, registerMainWindowIPC } from './windows/main-window'
@@ -42,6 +25,24 @@ import { getSetting } from './services/settings-store'
 import { isRecording } from './recording/lifecycle'
 import { getAvailableSources } from './recording/source-selector'
 import { initAutoUpdater } from './services/updater'
+import { logError, logWarn, getLogFilePath } from './services/logger'
+import { getAllHistory } from './services/history-store'
+
+// Last-resort error handlers. An uncaught exception or unhandled promise
+// rejection in the main process would otherwise either crash the app
+// silently (in production) or print a useless stack to a stderr that no
+// one is reading. Log to file (userData/logs/app.log) and keep the app
+// alive — Electron's default exit(1) on uncaught is hostile to a tray-
+// resident app. Static import — vite bundles main into a single file,
+// so dynamic require() of './services/logger' fails post-bundle.
+process.on('uncaughtException', (err) => {
+  try { console.error('[main] uncaughtException:', err) } catch { /* EPIPE */ }
+  try { logError('main', 'uncaughtException', err) } catch { /* ignore */ }
+})
+process.on('unhandledRejection', (reason) => {
+  try { console.error('[main] unhandledRejection:', reason) } catch { /* EPIPE */ }
+  try { logError('main', 'unhandledRejection', reason) } catch { /* ignore */ }
+})
 
 // Register custom protocol for serving local media files to renderer
 // Must be called before app.whenReady()
@@ -61,10 +62,25 @@ const ALLOWED_LOCAL_MEDIA_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.we
  * Windows case-insensitive comparison and normalizes ".." traversal.
  */
 function isPathInside(requested: string, root: string): boolean {
-  const rel = relativePath(root, requested)
-  if (!rel || rel.startsWith('..') || rel.startsWith(`..${sep}`)) return false
+  // Lowercase before relpath on Windows so e.g. "C:\\users" and "c:\\Users"
+  // compare equal — relativePath returns a non-empty traversal otherwise.
+  const r = process.platform === 'win32' ? requested.toLowerCase() : requested
+  const o = process.platform === 'win32' ? root.toLowerCase() : root
+  const rel = relativePath(o, r)
+  if (rel === '') return true
+  if (rel.startsWith('..') || rel.startsWith(`..${sep}`)) return false
   // Reject absolute relpath (different drive on Windows)
-  return !resolvePath(rel).startsWith(sep) && !/^[A-Za-z]:/.test(rel)
+  return !resolvePath(rel).startsWith(sep) && !/^[a-z]:/i.test(rel)
+}
+
+// Windows pins the taskbar icon to the AppUserModelID, not the BrowserWindow
+// icon. Without this call, every dev-mode launch shows the generic Electron
+// atom in the taskbar instead of our app icon — which made the user see two
+// different "logos" simultaneously (window icon vs taskbar icon).
+// In packaged builds electron-builder writes this into the manifest, but
+// for dev we have to call it ourselves. Must match `appId` in package.json.
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.shotirs.app')
 }
 
 app.whenReady().then(() => {
@@ -97,9 +113,26 @@ app.whenReady().then(() => {
       if (!ALLOWED_LOCAL_MEDIA_EXTS.has(ext)) {
         return new Response('forbidden', { status: 403 })
       }
-      const ok = allowedRoots.some(root => isPathInside(abs, root))
-      if (!ok) {
-        return new Response('forbidden', { status: 403 })
+      // Windows is case-insensitive on the filesystem; an exact-string
+      // compare like "C:\\Users\\..." vs "c:\\users\\..." would otherwise
+      // fail even though both refer to the same file. Normalize for compare.
+      const norm = (p: string) => process.platform === 'win32' ? p.toLowerCase() : p
+      const absKey = norm(abs)
+
+      // Two-tier check:
+      //   1. If the path lives under one of the allowlist roots, allow.
+      //   2. Otherwise, allow only if the EXACT path appears in history —
+      //      users save recordings/screenshots to arbitrary folders
+      //      (Desktop, Downloads, an external drive). The history store
+      //      records each one explicitly, so exact-match is both safe
+      //      (no broader directory access) and complete.
+      const insideRoot = allowedRoots.some(root => isPathInside(abs, root))
+      if (!insideRoot) {
+        const inHistory = getAllHistory().some(e => norm(resolvePath(e.filePath)) === absKey)
+        if (!inHistory) {
+          logWarn('local-media', `denied: ${abs}`)
+          return new Response('forbidden', { status: 403 })
+        }
       }
       return net.fetch(pathToFileURL(abs).href)
     } catch {
@@ -120,13 +153,11 @@ app.whenReady().then(() => {
 
   // Renderer → file logger bridge. Renderer error handlers forward
   // through this channel so a packaged-app crash leaves a paper trail.
-  const { ipcMain: ipcM, shell } = require('electron')
-  const { logError: lE, logWarn: lW, getLogFilePath } = require('./services/logger')
-  ipcM.on(IPC_CHANNELS.LOG_RENDERER, (_e: unknown, level: 'ERROR' | 'WARN', scope: string, message: string) => {
-    if (level === 'ERROR') lE(scope, message)
-    else lW(scope, message)
+  ipcMain.on(IPC_CHANNELS.LOG_RENDERER, (_e, level: 'ERROR' | 'WARN', scope: string, message: string) => {
+    if (level === 'ERROR') logError(scope, message)
+    else logWarn(scope, message)
   })
-  ipcM.on(IPC_CHANNELS.LOG_SHOW_FOLDER, () => {
+  ipcMain.on(IPC_CHANNELS.LOG_SHOW_FOLDER, () => {
     try { shell.showItemInFolder(getLogFilePath()) } catch { /* ignore */ }
   })
 

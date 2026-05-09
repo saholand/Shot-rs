@@ -52,7 +52,13 @@ export function EffectsApp() {
 
   // Wire IPC: state updates + click events from main
   useEffect(() => {
-    window.effectsAPI.onState((s: EffectsState) => setState(s))
+    window.electronAPI?.log?.warn('effects', 'mounted')
+    let cursorEventCount = 0
+    let lastCursorLogAt = 0
+    window.effectsAPI.onState((s: EffectsState) => {
+      window.electronAPI?.log?.warn('effects', `state ripple=${s.clickRipple.enabled} spot=${s.spotlight.enabled}`)
+      setState(s)
+    })
     window.effectsAPI.onClick((p: EffectsClickPayload) => {
       // Only react to LEFT clicks (button 1) for ripple — right/middle
       // would also fire and pollute. Skip if ripple disabled.
@@ -77,6 +83,12 @@ export function EffectsApp() {
     })
     window.effectsAPI.onCursorPos((p: HighlighterPosPayload) => {
       cursorTargetRef.current = { x: p.x, y: p.y }
+      cursorEventCount++
+      const now = Date.now()
+      if (now - lastCursorLogAt > 3000) {
+        window.electronAPI?.log?.warn('effects', `cursor events received: ${cursorEventCount} (latest ${p.x},${p.y})`)
+        lastCursorLogAt = now
+      }
     })
     return () => {
       window.effectsAPI.removeStateListener()

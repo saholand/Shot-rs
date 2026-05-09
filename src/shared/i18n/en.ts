@@ -31,9 +31,6 @@ export const en: Record<string, string> = {
   'history.copyFailed': 'Copy failed',
   'history.linkCopied': 'Link copied!',
   'history.uploadFailed': 'Upload failed',
-  'history.gifSaved': 'GIF saved!',
-  'history.gifCancelled': 'GIF save cancelled',
-  'history.gifError': 'GIF error',
   'history.videoEmpty': 'Video file is empty',
   'history.emptyAll': 'No captures yet',
   'history.emptyScreenshot': 'No screenshots',
@@ -45,9 +42,6 @@ export const en: Record<string, string> = {
   'history.copyLink': 'Copy link',
   'history.share': 'Share',
   'history.copyToClipboard': 'Copy to clipboard',
-  'history.exportGif': 'Export as GIF',
-  'history.trim': 'Trim',
-  'history.trimSaved': 'Trimmed copy saved',
   'history.open': 'Open',
   'history.showInFolder': 'Show in folder',
   'history.removeFromList': 'Remove from list',
@@ -186,24 +180,10 @@ export const en: Record<string, string> = {
   'recording.cantStart': 'Failed to start recording',
   'recording.maxDurationRemaining': 'Time until auto-stop',
   'recording.webcamUnavailable': 'Webcam unavailable — recording screen only',
-  'recording.trimBtn': '✂ Trim',
   'recording.micLevel': 'Microphone level',
   'recording.shareLinkCopied': 'Link copied: {url}',
   'recording.uploadFailed': 'Upload failed',
   'recording.tempFileFailed': 'Could not create temp file',
-
-  // ── Trim editor ──
-  'trim.title': 'Trim Recording',
-  'trim.close': 'Close',
-  'trim.start': 'Start',
-  'trim.end': 'End',
-  'trim.duration': 'Duration',
-  'trim.preview': '▶ Preview',
-  'trim.previewing': 'Playing...',
-  'trim.cancel': 'Cancel',
-  'trim.saveTrimmed': 'Save Trimmed',
-  'trim.saving': 'Trimming...',
-  'trim.saveFailed': 'Trim failed',
 
   // ── Overlay / Screenshot ──
   'overlay.screenshot': 'Screenshot',
@@ -247,6 +227,7 @@ export const en: Record<string, string> = {
   'toolbar.closeEsc': 'Close (Esc)',
   'toolbar.hide': 'Hide',
   'toolbar.size': 'Size',
+  'toolbar.recentColors': 'Recent',
   'toolbar.thin': 'Thin',
   'toolbar.medium': 'Medium',
   'toolbar.thick': 'Thick',
@@ -331,11 +312,4 @@ export const en: Record<string, string> = {
   // ── Source Picker ──
   'sourcePicker.loading': 'Loading sources...',
   'sourcePicker.empty': 'No screen or window found.',
-
-  // ── GIF Encoder ──
-  'gif.loadFailed': 'Failed to load video',
-  'gif.loadTimeout': 'Video loading timeout (15s)',
-  'gif.noDimensions': 'Could not read video dimensions',
-  'gif.noFrames': 'No frames captured',
-  'gif.unknown': 'unknown',
 }

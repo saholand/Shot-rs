@@ -59,35 +59,4 @@ export function registerHistoryIPC(): void {
       }
     }
   )
-
-  // Read file as buffer (for GIF export etc.)
-  ipcMain.handle(
-    IPC_CHANNELS.FILE_READ_BUFFER,
-    async (_event, filePath: string): Promise<ArrayBuffer> => {
-      const buffer = readFileSync(filePath)
-      return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
-    }
-  )
-
-  // Save buffer to file with save dialog
-  ipcMain.handle(
-    IPC_CHANNELS.FILE_SAVE_BUFFER,
-    async (_event, buffer: ArrayBuffer, defaultName: string): Promise<{ success: boolean; filePath?: string; error?: string }> => {
-      try {
-        const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
-        const ext = defaultName.split('.').pop() || 'gif'
-        const result = await dialog.showSaveDialog(win!, {
-          defaultPath: defaultName,
-          filters: [{ name: ext.toUpperCase(), extensions: [ext] }]
-        })
-        if (result.canceled || !result.filePath) {
-          return { success: false, error: 'CANCELLED' }
-        }
-        writeFileSync(result.filePath, Buffer.from(buffer))
-        return { success: true, filePath: result.filePath }
-      } catch (err) {
-        return { success: false, error: err instanceof Error ? err.message : tMain('error.saveError') }
-      }
-    }
-  )
 }

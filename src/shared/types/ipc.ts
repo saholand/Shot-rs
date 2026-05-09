@@ -158,8 +158,6 @@ export interface ElectronAPI {
     zoomGo: (payload: ZoomGoPayload) => void
     onZoomGo: (callback: (payload: ZoomGoPayload) => void) => void
     removeZoomGoListener: () => void
-    // Trim editor
-    trim: (payload: { inputPath: string; startSec: number; endSec: number }) => Promise<RecordingResult>
     // Webcam window mid-session toggle
     toggleWebcam: (enabled: boolean) => void
   }
@@ -179,8 +177,6 @@ export interface ElectronAPI {
     clear: () => Promise<void>
     openFile: (filePath: string) => Promise<{ success: boolean; error?: string }>
     showInFolder: (filePath: string) => void
-    readFileBuffer: (filePath: string) => Promise<ArrayBuffer>
-    saveBuffer: (buffer: ArrayBuffer, defaultName: string) => Promise<{ success: boolean; filePath?: string; error?: string }>
     copyFile: (filePath: string) => Promise<{ success: boolean; error?: string }>
   }
 

@@ -9,6 +9,7 @@ import { startSession, stopSession, setSaving, isRecording } from '../recording/
 import { getMainWindow, setRecordingAlwaysOnTop } from '../windows/main-window'
 import { createAnnotationOverlay, closeAnnotationOverlay } from '../windows/annotation-overlay-window'
 import { addHistoryEntry } from '../services/history-store'
+import { getSettings } from '../services/settings-store'
 import { buildVideoDialog, buildVideoDialogForExt } from '../services/save-dialog'
 import {
   initTempFile, writeChunk, finalizeTempFile,
@@ -16,7 +17,6 @@ import {
   getStreamError
 } from '../recording/temp-file-manager'
 import { startMouseHook, stopMouseHook } from '../recording/mouse-hook'
-import { trimVideo } from '../recording/trim'
 import {
   createHighlighterCursorWindow, closeHighlighterCursorWindow,
   pushHighlighterState, pushHighlighterPos, getHighlighterCursorWindow
@@ -310,31 +310,5 @@ export function registerRecordingIPC(): void {
   ipcMain.handle(IPC_CHANNELS.RECORDING_DISCARD_RECOVERY, async (_event, sessionId: string) => {
     discardRecovery(sessionId)
     return { success: true }
-  })
-
-  // Trim editor: cut [startSec, endSec) from inputPath. Renderer asks the
-  // user where to save, then we ffmpeg-cut. New file is added to history.
-  ipcMain.handle(IPC_CHANNELS.RECORDING_TRIM, async (event, payload: { inputPath: string; startSec: number; endSec: number }): Promise<RecordingResult> => {
-    try {
-      const callerWindow = require('electron').BrowserWindow.fromWebContents(event.sender) as Electron.BrowserWindow | null
-      const ext: 'mp4' | 'webm' = payload.inputPath.toLowerCase().endsWith('.mp4') ? 'mp4' : 'webm'
-      const { canceled, filePath } = await buildVideoDialogForExt(callerWindow, ext, 'dialog.trimAndSave')
-      if (canceled || !filePath) return { success: false, error: 'Save cancelled' }
-
-      const result = await trimVideo(payload.inputPath, filePath, payload.startSec, payload.endSec)
-      if (!result.success) {
-        return { success: false, error: result.error || 'Trim failed' }
-      }
-      addHistoryEntry({
-        id: randomUUID(),
-        type: 'recording',
-        filePath,
-        fileName: basename(filePath),
-        timestamp: Date.now()
-      })
-      return { success: true, filePath }
-    } catch (err) {
-      return { success: false, error: err instanceof Error ? err.message : 'Trim failed' }
-    }
   })
 }

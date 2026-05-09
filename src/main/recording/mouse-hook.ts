@@ -12,6 +12,8 @@
  * input only (effects + cursor tracking).
  */
 
+import { logError, logInfo } from '../services/logger'
+
 type MouseMoveCb = (payload: { x: number; y: number }) => void
 type MouseDownCb = (payload: { x: number; y: number; button: number }) => void
 
@@ -31,6 +33,7 @@ export async function startMouseHook(cbs: HookCallbacks): Promise<boolean> {
     mod = await import('uiohook-napi')
   } catch (err) {
     console.warn('uiohook-napi load failed:', err)
+    logError('mouse-hook', 'uiohook-napi load failed', err)
     return false
   }
   const { uIOhook } = mod
@@ -57,6 +60,7 @@ export async function startMouseHook(cbs: HookCallbacks): Promise<boolean> {
     uIOhook.on('mousedown', handleMouseDown)
     uIOhook.start()
     active = true
+    logInfo('mouse-hook', 'started successfully')
     cleanup = () => {
       try {
         uIOhook.off('mousemove', handleMouseMove)
@@ -70,6 +74,7 @@ export async function startMouseHook(cbs: HookCallbacks): Promise<boolean> {
     return true
   } catch (err) {
     console.warn('[mouse-hook] start failed:', err)
+    logError('mouse-hook', 'start failed', err)
     return false
   }
 }

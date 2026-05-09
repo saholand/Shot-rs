@@ -31,9 +31,6 @@ export const tr: Record<string, string> = {
   'history.copyFailed': 'Kopyalama başarısız',
   'history.linkCopied': 'Link kopyalandı!',
   'history.uploadFailed': 'Upload başarısız',
-  'history.gifSaved': 'GIF kaydedildi!',
-  'history.gifCancelled': 'GIF kaydetme iptal edildi',
-  'history.gifError': 'GIF hatası',
   'history.videoEmpty': 'Video dosyası boş',
   'history.emptyAll': 'Henüz yakalama yok',
   'history.emptyScreenshot': 'Ekran görüntüsü yok',
@@ -45,9 +42,6 @@ export const tr: Record<string, string> = {
   'history.copyLink': 'Linki kopyala',
   'history.share': 'Paylaş',
   'history.copyToClipboard': 'Panoya kopyala',
-  'history.exportGif': 'GIF olarak dışa aktar',
-  'history.trim': 'Kes',
-  'history.trimSaved': 'Kesilmiş kopya kaydedildi',
   'history.open': 'Aç',
   'history.showInFolder': 'Klasörde göster',
   'history.removeFromList': 'Listeden kaldır',
@@ -186,24 +180,10 @@ export const tr: Record<string, string> = {
   'recording.cantStart': 'Kayıt başlatılamadı',
   'recording.maxDurationRemaining': 'Otomatik durmaya kalan süre',
   'recording.webcamUnavailable': 'Kamera kullanılamıyor — sadece ekran kaydedilecek',
-  'recording.trimBtn': '✂ Trim et',
   'recording.micLevel': 'Mikrofon seviyesi',
   'recording.shareLinkCopied': 'Link kopyalandı: {url}',
   'recording.uploadFailed': 'Upload başarısız',
   'recording.tempFileFailed': 'Geçici dosya oluşturulamadı',
-
-  // ── Trim editor ──
-  'trim.title': 'Kayıdı Kes',
-  'trim.close': 'Kapat',
-  'trim.start': 'Başlangıç',
-  'trim.end': 'Bitiş',
-  'trim.duration': 'Süre',
-  'trim.preview': '▶ Önizle',
-  'trim.previewing': 'Oynatılıyor...',
-  'trim.cancel': 'İptal',
-  'trim.saveTrimmed': 'Kesilmiş Halini Kaydet',
-  'trim.saving': 'Kesiliyor...',
-  'trim.saveFailed': 'Kesme başarısız',
 
   // ── Overlay / Screenshot ──
   'overlay.screenshot': 'Ekran Görüntüsü',
@@ -247,6 +227,7 @@ export const tr: Record<string, string> = {
   'toolbar.closeEsc': 'Kapat (Esc)',
   'toolbar.hide': 'Gizle',
   'toolbar.size': 'Kalınlık',
+  'toolbar.recentColors': 'Son',
   'toolbar.thin': 'İnce',
   'toolbar.medium': 'Orta',
   'toolbar.thick': 'Kalın',
@@ -331,11 +312,4 @@ export const tr: Record<string, string> = {
   // ── Source Picker ──
   'sourcePicker.loading': 'Kaynaklar yükleniyor...',
   'sourcePicker.empty': 'Ekran veya pencere bulunamadı.',
-
-  // ── GIF Encoder ──
-  'gif.loadFailed': 'Video yüklenemedi',
-  'gif.loadTimeout': 'Video yükleme zaman aşımı (15s)',
-  'gif.noDimensions': 'Video boyutları okunamadı',
-  'gif.noFrames': 'Hiç frame yakalanamadı',
-  'gif.unknown': 'bilinmeyen',
 }

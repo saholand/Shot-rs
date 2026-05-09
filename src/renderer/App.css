@@ -1341,18 +1341,10 @@ select:focus-visible,
 .history-delete-btn:hover { background: var(--danger-soft); color: var(--danger); }
 .history-share-btn:hover  { background: var(--success-soft); color: var(--success); }
 .history-copy-btn:hover   { background: var(--info-soft); color: var(--info); }
-.history-gif-btn:hover    { background: rgba(155, 89, 182, 0.12); color: #B07ACC; }
 
 .history-action-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-}
-
-.history-gif-progress {
-  font-size: 9px;
-  font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
-  color: #B07ACC;
 }
 
 /* ============================================================================

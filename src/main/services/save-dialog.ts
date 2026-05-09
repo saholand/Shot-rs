@@ -41,13 +41,12 @@ async function showSaveDialog(
 /**
  * Open a save dialog for a recording (mp4 or webm). `titleKey` chooses
  * which i18n title to use — typically `'dialog.saveRecording'` but the
- * recovery flow uses `'dialog.recoverRecording'` and trim uses
- * `'dialog.trimAndSave'`.
+ * recovery flow uses `'dialog.recoverRecording'`.
  */
 export async function buildVideoDialog(
   parent: BrowserWindow | null,
   mimeType: string | undefined,
-  titleKey: 'dialog.saveRecording' | 'dialog.recoverRecording' | 'dialog.trimAndSave' = 'dialog.saveRecording'
+  titleKey: 'dialog.saveRecording' | 'dialog.recoverRecording' = 'dialog.saveRecording'
 ): Promise<DialogResult> {
   const settings = getSettings()
   const ext = videoExtFromMime(mimeType)
@@ -61,11 +60,11 @@ export async function buildVideoDialog(
   })
 }
 
-/** Variant for trim, which already knows the input's extension. */
+/** Variant when caller already knows the file's extension (recovery flow). */
 export async function buildVideoDialogForExt(
   parent: BrowserWindow | null,
   ext: VideoExt,
-  titleKey: 'dialog.saveRecording' | 'dialog.recoverRecording' | 'dialog.trimAndSave' = 'dialog.trimAndSave'
+  titleKey: 'dialog.saveRecording' | 'dialog.recoverRecording' = 'dialog.recoverRecording'
 ): Promise<DialogResult> {
   const settings = getSettings()
   const filterName = ext === 'mp4' ? 'MP4 Video' : 'WebM Video'

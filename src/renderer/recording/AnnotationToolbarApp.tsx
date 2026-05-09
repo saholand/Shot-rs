@@ -387,20 +387,48 @@ export function AnnotationToolbarApp() {
     || rippleEnabled
     || spotEnabled
 
+  // Recent custom colors live here in the sub-bar (not the main row) so
+  // adding new colors doesn't extend the fixed-width toolbar window.
+  // Shown only for color-using tools and only when at least one custom
+  // color has been picked.
+  const renderRecentColors = () => {
+    if (recentColors.length === 0) return null
+    return (
+      <>
+        <div className="la-sub-sep" />
+        <div className="la-sub-group">
+          <span className="la-sub-label">{t('toolbar.recentColors') || 'Son'}</span>
+          {recentColors.map(c => (
+            <button
+              key={c}
+              className={`la-color la-color-recent ${activeColor.toLowerCase() === c.toLowerCase() ? 'la-color-active' : ''}`}
+              style={{ background: c, width: 16, height: 16 }}
+              onClick={() => handleColorChange(c)}
+              title={c}
+            />
+          ))}
+        </div>
+      </>
+    )
+  }
+
   const renderStroke = () => (
-    <div className="la-sub-group">
-      <span className="la-sub-label">{t('toolbar.size')}</span>
-      {STROKE_WIDTHS.map(s => (
-        <button
-          key={s.id}
-          className={`la-stroke-btn ${strokeWidth === s.id ? 'la-stroke-active' : ''}`}
-          onClick={() => handleStrokeChange(s.id)}
-          title={s.label}
-        >
-          <span className="la-stroke-dot" style={{ width: s.dot, height: s.dot }} />
-        </button>
-      ))}
-    </div>
+    <>
+      <div className="la-sub-group">
+        <span className="la-sub-label">{t('toolbar.size')}</span>
+        {STROKE_WIDTHS.map(s => (
+          <button
+            key={s.id}
+            className={`la-stroke-btn ${strokeWidth === s.id ? 'la-stroke-active' : ''}`}
+            onClick={() => handleStrokeChange(s.id)}
+            title={s.label}
+          >
+            <span className="la-stroke-dot" style={{ width: s.dot, height: s.dot }} />
+          </button>
+        ))}
+      </div>
+      {renderRecentColors()}
+    </>
   )
 
   // Text tool sub-bar: font size pills + the text input itself. The
@@ -444,6 +472,7 @@ export function AnnotationToolbarApp() {
           +
         </button>
       </div>
+      {renderRecentColors()}
     </>
   )
 
@@ -502,21 +531,24 @@ export function AnnotationToolbarApp() {
   // Cover ("blur") style picker — 4 variants. Tooltip + thumbnail tile
   // for each so the user can preview the effect at-a-glance.
   const renderCoverStyles = () => (
-    <div className="la-sub-group">
-      <span className="la-sub-label">{t('liveToolbar.coverStyle')}</span>
-      {COVER_STYLES.map(s => (
-        <button
-          key={s.id}
-          className={`la-cover-tile ${coverStyle === s.id ? 'la-cover-tile-active' : ''}`}
-          onClick={() => handleCoverStyleChange(s.id)}
-          title={s.label}
-          aria-label={s.label}
-        >
-          <span className={`la-cover-thumb la-cover-thumb-${s.id}`} style={s.id === 'solid' ? { background: activeColor } : undefined} />
-          <span className="la-cover-tile-label">{s.label}</span>
-        </button>
-      ))}
-    </div>
+    <>
+      <div className="la-sub-group">
+        <span className="la-sub-label">{t('liveToolbar.coverStyle')}</span>
+        {COVER_STYLES.map(s => (
+          <button
+            key={s.id}
+            className={`la-cover-tile ${coverStyle === s.id ? 'la-cover-tile-active' : ''}`}
+            onClick={() => handleCoverStyleChange(s.id)}
+            title={s.label}
+            aria-label={s.label}
+          >
+            <span className={`la-cover-thumb la-cover-thumb-${s.id}`} style={s.id === 'solid' ? { background: activeColor } : undefined} />
+            <span className="la-cover-tile-label">{s.label}</span>
+          </button>
+        ))}
+      </div>
+      {coverStyle === 'solid' && renderRecentColors()}
+    </>
   )
 
   const renderEraser = () => (
@@ -770,17 +802,9 @@ export function AnnotationToolbarApp() {
             onClick={() => handleColorChange(color)}
           />
         ))}
-        {/* Recent custom colors (max 4) — inline so they don't push the
-            toolbar layout into a third row that overflows the window. */}
-        {recentColors.map(c => (
-          <button
-            key={c}
-            className={`la-color la-color-recent ${activeColor.toLowerCase() === c.toLowerCase() ? 'la-color-active' : ''}`}
-            style={{ background: c }}
-            onClick={() => handleColorChange(c)}
-            title={c}
-          />
-        ))}
+        {/* Recent colors used to live in this main row but every new color
+            extended the toolbar past its 820px window — moved to the sub-bar
+            below where they appear contextually for color-using tools. */}
         <button
           className="la-color-trigger"
           onClick={() => nativeColorRef.current?.click()}

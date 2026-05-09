@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react'
 import type { HistoryEntry } from '../../shared/types/history'
-import { videoToGif } from '../utils/gif-encoder'
-import { TrimEditor } from '../trim/TrimEditor'
 import { useTranslation } from '../hooks/useTranslation'
 import { t as i18nT } from '../../shared/i18n'
 
@@ -92,23 +90,6 @@ const IconCopy = () => (
   </svg>
 )
 
-const IconGif = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <rect x="2" y="4" width="20" height="16" rx="2" />
-    <text x="12" y="15" textAnchor="middle" fill="currentColor" stroke="none" fontSize="8" fontWeight="bold" fontFamily="sans-serif">GIF</text>
-  </svg>
-)
-
-const IconScissors = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="6" cy="6" r="3" />
-    <circle cx="6" cy="18" r="3" />
-    <line x1="20" y1="4" x2="8.12" y2="15.88" />
-    <line x1="14.47" y1="14.48" x2="20" y2="20" />
-    <line x1="8.12" y1="8.12" x2="12" y2="12" />
-  </svg>
-)
-
 const IconLoading = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: 'spin 1s linear infinite' }}>
     <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
@@ -123,9 +104,6 @@ export function HistoryPanel(_: Props) {
   const [uploadingId, setUploadingId] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
   const [confirmClear, setConfirmClear] = useState(false)
-  const [gifExportingId, setGifExportingId] = useState<string | null>(null)
-  const [gifProgress, setGifProgress] = useState(0)
-  const [trimEntry, setTrimEntry] = useState<HistoryEntry | null>(null)
   // Bulk-select state. Empty Set means "not in select mode at all" so we
   // don't clutter the UI with checkboxes until the user opts in.
   const [selectMode, setSelectMode] = useState(false)
@@ -274,39 +252,6 @@ export function HistoryPanel(_: Props) {
     setEntries(prev => prev.filter(e => !selectedIds.has(e.id)))
     setStatus({ text: t('history.bulkDeleted', { count: ids.length }), type: 'info' })
     exitSelectMode()
-  }
-
-  const handleGifExport = async (entry: HistoryEntry) => {
-    setGifExportingId(entry.id)
-    setGifProgress(0)
-    setStatus(null)
-    try {
-      // Use custom protocol URL to bypass Electron's blob URL security check
-      const mediaUrl = `local-media:///${entry.filePath.replace(/\\/g, '/')}`
-
-      // Convert to GIF
-      const gifData = await videoToGif(mediaUrl, { maxWidth: 480, fps: 10, maxDuration: 15 }, (pct) => {
-        setGifProgress(pct)
-      })
-
-      // Save GIF file
-      const gifName = entry.fileName.replace(/\.[^.]+$/, '.gif')
-      const result = await window.electronAPI.history.saveBuffer(gifData.buffer, gifName)
-
-      if (result.success) {
-        setStatus({ text: t('history.gifSaved'), type: 'success' })
-      } else if (result.error === 'CANCELLED') {
-        setStatus({ text: t('history.gifCancelled'), type: 'info' })
-      } else {
-        setStatus({ text: result.error || t('history.gifError'), type: 'error' })
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : t('gif.unknown')
-      console.error('GIF export error:', err)
-      setStatus({ text: `${t('history.gifError')}: ${msg}`, type: 'error' })
-    }
-    setGifExportingId(null)
-    setGifProgress(0)
   }
 
   const filtered = filter === 'all' ? entries : entries.filter(e => e.type === filter)
@@ -486,29 +431,6 @@ export function HistoryPanel(_: Props) {
                     <IconCopy />
                   </button>
                 )}
-                {entry.type === 'recording' && (
-                  <>
-                    <button
-                      className="history-action-btn"
-                      onClick={() => setTrimEntry(entry)}
-                      title={t('history.trim')}
-                    >
-                      <IconScissors />
-                    </button>
-                    <button
-                      className="history-action-btn history-gif-btn"
-                      onClick={() => handleGifExport(entry)}
-                      disabled={gifExportingId === entry.id}
-                      title={t('history.exportGif')}
-                    >
-                      {gifExportingId === entry.id ? (
-                        <span className="history-gif-progress">{gifProgress}%</span>
-                      ) : (
-                        <IconGif />
-                      )}
-                    </button>
-                  </>
-                )}
                 <button
                   className="history-action-btn"
                   onClick={() => handleOpen(entry)}
@@ -537,19 +459,6 @@ export function HistoryPanel(_: Props) {
         </div>
       )}
 
-      {trimEntry && (
-        <TrimEditor
-          filePath={trimEntry.filePath}
-          onClose={() => setTrimEntry(null)}
-          onSaved={async () => {
-            setTrimEntry(null)
-            // Refresh list so the trimmed copy appears
-            const fresh = await window.electronAPI.history.getAll()
-            setEntries(fresh)
-            setStatus({ text: i18nT('history.trimSaved'), type: 'success' })
-          }}
-        />
-      )}
     </div>
   )
 }

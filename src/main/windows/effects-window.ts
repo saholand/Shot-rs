@@ -13,6 +13,7 @@
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'path'
 import { IPC_CHANNELS } from '../../shared/constants'
+import { logInfo } from '../services/logger'
 import type { EffectsState, EffectsClickPayload, HighlighterPosPayload } from '../../shared/types/ipc'
 
 let effectsWindow: BrowserWindow | null = null
@@ -58,11 +59,15 @@ export function createEffectsWindow(): BrowserWindow {
   effectsWindow.setAlwaysOnTop(true, 'screen-saver')
   effectsWindow.setIgnoreMouseEvents(true, { forward: true })
 
+  logInfo('effects-window', `creating at ${minX},${minY} ${maxX-minX}x${maxY-minY}`)
   if (process.env.ELECTRON_RENDERER_URL) {
     effectsWindow.loadURL(`${process.env.ELECTRON_RENDERER_URL}/effects.html`)
   } else {
     effectsWindow.loadFile(join(__dirname, '../renderer/effects.html'))
   }
+  effectsWindow.webContents.on('did-finish-load', () => logInfo('effects-window', 'loaded'))
+  effectsWindow.webContents.on('did-fail-load', (_e, code, desc) =>
+    logInfo('effects-window', `load failed: ${code} ${desc}`))
 
   // Async close → late 'closed' event could null a newer window's ref.
   const win = effectsWindow
