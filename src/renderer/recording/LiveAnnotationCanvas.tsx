@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import type { Annotation, AnnotationTool, CoverStyle, Point } from '../../shared/types/annotation'
 import { renderAll, renderAnnotation } from '../annotation/render'
+import { useTranslation } from '../hooks/useTranslation'
 
 type StrokeWidth = 'thin' | 'medium' | 'thick'
 type FontSize = 'small' | 'medium' | 'large'
@@ -67,6 +68,7 @@ export function LiveAnnotationCanvas({
   pendingText,
   onTextPlaced
 }: Props) {
+  const { t } = useTranslation()
   const sw = STROKE_WIDTH_PX[strokeWidth]
   const fs = FONT_SIZE_PX[fontSize]
   const eraserRadius = ERASER_RADIUS_PX[eraserSize]
@@ -359,16 +361,16 @@ export function LiveAnnotationCanvas({
           width: dx,
           height: dy
         }
-        onOCRStatus?.({ text: 'OCR taranıyor...', type: 'success' })
+        onOCRStatus?.({ text: t('liveOcr.scanning'), type: 'success' })
         window.annotationOverlayAPI.ocrCaptureRegion(region).then(result => {
           if (result.success && result.text) {
-            onOCRStatus?.({ text: 'Metin kopyalandı!', type: 'success' })
+            onOCRStatus?.({ text: t('liveOcr.copied'), type: 'success' })
           } else {
-            onOCRStatus?.({ text: result.error || 'Metin bulunamadı', type: 'error' })
+            onOCRStatus?.({ text: result.error || t('liveOcr.notFound'), type: 'error' })
           }
           setTimeout(() => onOCRStatus?.(null), 2000)
         }).catch(() => {
-          onOCRStatus?.({ text: 'OCR hatası', type: 'error' })
+          onOCRStatus?.({ text: t('liveOcr.error'), type: 'error' })
           setTimeout(() => onOCRStatus?.(null), 2000)
         })
       }

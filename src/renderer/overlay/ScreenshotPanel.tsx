@@ -30,7 +30,7 @@ export function ScreenshotPanel({ onBack }: ScreenshotPanelProps) {
     // Listen for capture errors
     window.electronAPI.screenshot.onResult((result: ScreenshotResult) => {
       if (!result.clipboard.success && result.clipboard.error) {
-        setStatus({ text: `Hata: ${result.clipboard.error}`, type: 'error' })
+        setStatus({ text: t('overlay.errorPrefix', { msg: result.clipboard.error }), type: 'error' })
         setTimeout(() => setStatus(null), 5000)
       }
     })

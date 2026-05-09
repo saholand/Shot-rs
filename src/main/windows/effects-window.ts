@@ -64,7 +64,9 @@ export function createEffectsWindow(): BrowserWindow {
     effectsWindow.loadFile(join(__dirname, '../renderer/effects.html'))
   }
 
-  effectsWindow.on('closed', () => { effectsWindow = null })
+  // Async close → late 'closed' event could null a newer window's ref.
+  const win = effectsWindow
+  win.on('closed', () => { if (effectsWindow === win) effectsWindow = null })
 
   return effectsWindow
 }

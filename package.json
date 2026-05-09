@@ -1,22 +1,31 @@
 {
   "name": "shotirs",
   "version": "1.0.0",
-  "description": "Fast screenshot and screen recording tool",
-  "author": "Shotırs",
+  "description": "Fast screenshot and screen recording tool — region capture, screen recording, OCR, annotation",
+  "author": {
+    "name": "Shotırs",
+    "email": "alihanaydin.media@gmail.com"
+  },
   "productName": "Shotırs",
+  "homepage": "https://github.com/saholand/shotirs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/saholand/shotirs.git"
+  },
   "main": "out/main/index.js",
   "scripts": {
     "dev": "node scripts/dev.js",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/",
     "dist": "electron-vite build && electron-builder --win",
     "dist:portable": "electron-vite build && electron-builder --win portable",
     "dist:nsis": "electron-vite build && electron-builder --win nsis"
   },
   "dependencies": {
+    "@tabler/icons-react": "^3.44.0",
     "@types/fluent-ffmpeg": "^2.1.28",
+    "electron-updater": "^6.8.3",
     "ffmpeg-static": "^5.3.0",
     "fluent-ffmpeg": "^2.1.3",
     "react": "^18.3.1",
@@ -57,8 +66,18 @@
           ]
         }
       ],
-      "icon": "build/icon.ico"
+      "icon": "build/icon.ico",
+      "publisherName": "Shotırs",
+      "fileDescription": "Shotırs — Screenshot & Screen Recording",
+      "legalCopyright": "Copyright © 2026 Shotırs"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "saholand",
+        "repo": "shotirs"
+      }
+    ],
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,

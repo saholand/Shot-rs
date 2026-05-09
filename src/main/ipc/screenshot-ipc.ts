@@ -6,12 +6,14 @@ import {
   getOverlayWindow,
   hideOverlayWindow,
   showOverlayWindow,
-  getOverlayDisplay
+  getOverlayDisplay,
+  onOverlayClosed
 } from '../windows/overlay-window'
 import { getMainWindow } from '../windows/main-window'
 import { captureAndCrop, captureFullScreen } from '../screenshot/capture'
 import { exportToClipboard, exportToFile } from '../screenshot/export'
 import { runRecognize } from './ocr-ipc'
+import { tMain } from '../services/i18n-main'
 import type { SelectionRegion, ExportResult } from '../../shared/types/ipc'
 
 let lastCapturedImage: Electron.NativeImage | null = null
@@ -32,6 +34,11 @@ export function startOCRSelection(): void {
 }
 
 export function registerScreenshotIPC(): void {
+  // Reset the mode any time the overlay window closes — covers cancel paths
+  // we don't otherwise see (renderer crash, OS close, alt-tab dismiss). Stops
+  // a stale 'ocr' or 'region' from leaking into the next screenshot.
+  onOverlayClosed(() => { overlayMode = 'screenshot' })
+
   ipcMain.handle(IPC_CHANNELS.SCREENSHOT_START, () => {
     createOverlayWindow()
   })
@@ -83,7 +90,7 @@ export function registerScreenshotIPC(): void {
         closeOverlayWindow()
 
         if (!image || image.isEmpty()) {
-          showOCRNotification('Ekran yakalanamadı', false)
+          showOCRNotification(tMain('error.captureFailed'), false)
           return
         }
 
@@ -91,24 +98,24 @@ export function registerScreenshotIPC(): void {
 
         // Use shared OCR worker
         if (!ocrWorkerGetter) {
-          showOCRNotification('OCR hazır değil', false)
+          showOCRNotification(tMain('error.ocrNotReady'), false)
           return
         }
         const w = await ocrWorkerGetter()
         const { text } = await runRecognize(w, dataUrl)
 
         if (!text) {
-          showOCRNotification('Metin bulunamadı', false)
+          showOCRNotification(tMain('error.textNotFound'), false)
           return
         }
 
         clipboard.writeText(text)
-        showOCRNotification(`Metin kopyalandı! (${text.length} karakter)`, true)
+        showOCRNotification(tMain('ocr.copiedToClipboard', { chars: text.length }), true)
       } catch (err) {
         closeOverlayWindow()
         const msg = err instanceof Error ? err.message : String(err)
         console.error('OCR hotkey error:', msg)
-        showOCRNotification('OCR hatası', false)
+        showOCRNotification(tMain('error.ocrError'), false)
       }
       return
     }
@@ -238,7 +245,7 @@ export function registerScreenshotIPC(): void {
 
 function showOCRNotification(body: string, success: boolean): void {
   new Notification({
-    title: success ? 'OCR Tamamlandı' : 'OCR Hatası',
+    title: tMain(success ? 'ocr.notifyDoneTitle' : 'ocr.notifyErrorTitle'),
     body
   }).show()
 }

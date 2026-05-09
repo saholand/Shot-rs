@@ -1,6 +1,6 @@
 import { Tray, Menu, app, nativeImage } from 'electron'
 import { join } from 'path'
-import { IPC_CHANNELS } from '../../shared/constants'
+import { IPC_CHANNELS, APP_NAME } from '../../shared/constants'
 import { getMainWindow, showMainWindow, hideMainWindow } from '../windows/main-window'
 import { createOverlayWindow } from '../windows/overlay-window'
 
@@ -32,7 +32,7 @@ export function createTray(): void {
 
   const icon = loadTrayIcon()
   tray = new Tray(icon)
-  tray.setToolTip('Shotırs')
+  tray.setToolTip(APP_NAME)
 
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -76,9 +76,9 @@ export function updateTrayRecordingState(recording: boolean): void {
   if (!tray) return
 
   if (recording) {
-    tray.setToolTip('Shotırs — Recording...')
+    tray.setToolTip(`${APP_NAME} — Recording...`)
   } else {
-    tray.setToolTip('Shotırs')
+    tray.setToolTip(APP_NAME)
   }
 }
 

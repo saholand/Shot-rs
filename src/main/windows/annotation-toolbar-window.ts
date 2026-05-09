@@ -71,9 +71,13 @@ export function createAnnotationToolbar(): BrowserWindow {
     toolbarWindow.loadFile(join(__dirname, '../renderer/annotation-toolbar.html'))
   }
 
-  toolbarWindow.on('closed', () => {
-    toolbarWindow = null
-    toolbarBaseY = null
+  // Async close → late 'closed' event could null a newer window's ref.
+  const win = toolbarWindow
+  win.on('closed', () => {
+    if (toolbarWindow === win) {
+      toolbarWindow = null
+      toolbarBaseY = null
+    }
   })
 
   return toolbarWindow

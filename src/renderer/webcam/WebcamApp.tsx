@@ -46,7 +46,6 @@ export function WebcamApp() {
         // than getUserMedia when no camera exists.
         const devices = await navigator.mediaDevices.enumerateDevices()
         const videoInputs = devices.filter(d => d.kind === 'videoinput')
-        console.log('[webcam] available cameras:', videoInputs.length, videoInputs.map(d => d.label || d.deviceId))
         if (videoInputs.length === 0) {
           setError('Bilgisayarda kamera bulunamadı / No camera detected')
           return
@@ -55,7 +54,6 @@ export function WebcamApp() {
           audio: false,
           video: config.deviceId ? { deviceId: { exact: config.deviceId } } : true
         }
-        console.log('[webcam] requesting getUserMedia', constraints)
         const stream = await navigator.mediaDevices.getUserMedia(constraints)
         if (cancelled) {
           stream.getTracks().forEach(t => t.stop())
@@ -66,11 +64,9 @@ export function WebcamApp() {
           videoRef.current.srcObject = stream
           await videoRef.current.play().catch(() => { /* autoplay grace */ })
         }
-        console.log('[webcam] stream live')
         setError(null)
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Camera unavailable'
-        console.error('[webcam] getUserMedia failed:', msg)
         if (!cancelled) setError(msg)
       }
     })()

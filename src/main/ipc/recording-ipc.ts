@@ -1,6 +1,6 @@
-import { ipcMain, dialog } from 'electron'
+import { ipcMain } from 'electron'
 import { writeFile, copyFile, unlink } from 'fs/promises'
-import { basename, join } from 'path'
+import { basename } from 'path'
 import { statSync } from 'fs'
 import { randomUUID } from 'crypto'
 import { IPC_CHANNELS } from '../../shared/constants'
@@ -9,11 +9,11 @@ import { startSession, stopSession, setSaving, isRecording } from '../recording/
 import { getMainWindow, setRecordingAlwaysOnTop } from '../windows/main-window'
 import { createAnnotationOverlay, closeAnnotationOverlay } from '../windows/annotation-overlay-window'
 import { addHistoryEntry } from '../services/history-store'
-import { getSettings } from '../services/settings-store'
-import { resolveFileName } from '../../shared/types/settings'
+import { buildVideoDialog, buildVideoDialogForExt } from '../services/save-dialog'
 import {
   initTempFile, writeChunk, finalizeTempFile,
-  checkForRecovery, discardRecovery, getRecoveryFilePath
+  checkForRecovery, discardRecovery, getRecoveryFilePath,
+  getStreamError
 } from '../recording/temp-file-manager'
 import { startMouseHook, stopMouseHook } from '../recording/mouse-hook'
 import { trimVideo } from '../recording/trim'
@@ -49,7 +49,6 @@ export function registerRecordingIPC(): void {
       if (isRecording()) {
         return { success: false, error: 'Already recording' }
       }
-      console.log('[recording-ipc] RECORDING_START source=', sourceId, 'mic=', micEnabled)
       startSession(sourceId, sourceName || sourceId, !!micEnabled)
 
       // Open annotation overlay for live drawing during recording.
@@ -139,7 +138,6 @@ export function registerRecordingIPC(): void {
 
   // Highlighter cursor toggle / state updates from the live toolbar
   ipcMain.on(IPC_CHANNELS.HIGHLIGHTER_CURSOR_TOGGLE, (_event, state: HighlighterCursorState) => {
-    console.log('[ipc] highlighter toggle:', state)
     if (state.enabled) {
       const win = createHighlighterCursorWindow()
       // Push the current state both immediately AND on did-finish-load —
@@ -176,28 +174,7 @@ export function registerRecordingIPC(): void {
   ipcMain.handle(IPC_CHANNELS.RECORDING_SAVE, async (_event, buffer: ArrayBuffer, mimeType?: string): Promise<RecordingResult> => {
     setSaving()
     try {
-      const mainWindow = getMainWindow()
-      const settings = getSettings()
-
-      // Determine file extension from mimeType
-      const isMP4 = mimeType?.includes('mp4')
-      const ext = isMP4 ? 'mp4' : 'webm'
-      const filterName = isMP4 ? 'MP4 Video' : 'WebM Video'
-
-      const fileName = resolveFileName(settings.recordingFileNameFormat, ext)
-      const defaultPath = settings.defaultSaveDir
-        ? join(settings.defaultSaveDir, fileName)
-        : fileName
-
-      const dialogOptions: Electron.SaveDialogOptions = {
-        title: 'Kaydı Kaydet',
-        defaultPath,
-        filters: [{ name: filterName, extensions: [ext] }]
-      }
-
-      const { canceled, filePath } = mainWindow
-        ? await dialog.showSaveDialog(mainWindow, dialogOptions)
-        : await dialog.showSaveDialog(dialogOptions)
+      const { canceled, filePath } = await buildVideoDialog(getMainWindow(), mimeType)
 
       if (canceled || !filePath) {
         stopSession()
@@ -233,7 +210,7 @@ export function registerRecordingIPC(): void {
 
   ipcMain.handle(IPC_CHANNELS.RECORDING_INIT_TEMP, async (_event, mimeType: string, sourceName: string) => {
     try {
-      const sessionId = initTempFile(mimeType, sourceName)
+      const sessionId = await initTempFile(mimeType, sourceName)
       return { success: true, sessionId }
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : 'Failed to init temp file' }
@@ -243,7 +220,14 @@ export function registerRecordingIPC(): void {
   ipcMain.handle(IPC_CHANNELS.RECORDING_WRITE_CHUNK, async (_event, chunkBuffer: ArrayBuffer) => {
     try {
       const ok = writeChunk(Buffer.from(chunkBuffer))
-      return { success: ok }
+      if (!ok) {
+        // Surface the underlying reason (disk full, permission denied, …)
+        // so the renderer can show a meaningful message instead of an
+        // ambiguous "write failed".
+        const err = getStreamError()
+        return { success: false, error: err ? `${err.message} (${(err as NodeJS.ErrnoException).code ?? ''})`.trim() : 'stream closed' }
+      }
+      return { success: true }
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : 'Write failed' }
     }
@@ -265,20 +249,7 @@ export function registerRecordingIPC(): void {
         return { success: false, error: 'Recording was empty' }
       }
 
-      const mainWindow = getMainWindow()
-      const settings = getSettings()
-      const isMP4 = mimeType?.includes('mp4')
-      const ext = isMP4 ? 'mp4' : 'webm'
-      const filterName = isMP4 ? 'MP4 Video' : 'WebM Video'
-
-      const fileName = resolveFileName(settings.recordingFileNameFormat, ext)
-      const defaultPath = settings.defaultSaveDir
-        ? join(settings.defaultSaveDir, fileName)
-        : fileName
-
-      const { canceled, filePath } = mainWindow
-        ? await dialog.showSaveDialog(mainWindow, { title: 'Kaydı Kaydet', defaultPath, filters: [{ name: filterName, extensions: [ext] }] })
-        : await dialog.showSaveDialog({ title: 'Kaydı Kaydet', defaultPath, filters: [{ name: filterName, extensions: [ext] }] })
+      const { canceled, filePath } = await buildVideoDialog(getMainWindow(), mimeType)
 
       if (canceled || !filePath) {
         try { await unlink(tempPath) } catch { /* ignore */ }
@@ -314,19 +285,8 @@ export function registerRecordingIPC(): void {
       const tempPath = getRecoveryFilePath(sessionId)
       if (!tempPath) return { success: false, error: 'Recovery file not found' }
 
-      const mainWindow = getMainWindow()
-      const settings = getSettings()
-      const ext = tempPath.endsWith('.mp4') ? 'mp4' : 'webm'
-      const filterName = ext === 'mp4' ? 'MP4 Video' : 'WebM Video'
-
-      const fileName = resolveFileName(settings.recordingFileNameFormat, ext)
-      const defaultPath = settings.defaultSaveDir
-        ? join(settings.defaultSaveDir, fileName)
-        : fileName
-
-      const { canceled, filePath } = mainWindow
-        ? await dialog.showSaveDialog(mainWindow, { title: 'Kaydı Kurtar', defaultPath, filters: [{ name: filterName, extensions: [ext] }] })
-        : await dialog.showSaveDialog({ title: 'Kaydı Kurtar', defaultPath, filters: [{ name: filterName, extensions: [ext] }] })
+      const ext: 'mp4' | 'webm' = tempPath.endsWith('.mp4') ? 'mp4' : 'webm'
+      const { canceled, filePath } = await buildVideoDialogForExt(getMainWindow(), ext, 'dialog.recoverRecording')
 
       if (canceled || !filePath) return { success: false, error: 'Save cancelled' }
 
@@ -357,22 +317,8 @@ export function registerRecordingIPC(): void {
   ipcMain.handle(IPC_CHANNELS.RECORDING_TRIM, async (event, payload: { inputPath: string; startSec: number; endSec: number }): Promise<RecordingResult> => {
     try {
       const callerWindow = require('electron').BrowserWindow.fromWebContents(event.sender) as Electron.BrowserWindow | null
-      const settings = getSettings()
-      const ext = payload.inputPath.toLowerCase().endsWith('.mp4') ? 'mp4' : 'webm'
-      const filterName = ext === 'mp4' ? 'MP4 Video' : 'WebM Video'
-      const fileName = resolveFileName(settings.recordingFileNameFormat, ext)
-      const defaultPath = settings.defaultSaveDir
-        ? join(settings.defaultSaveDir, fileName)
-        : fileName
-
-      const dialogOptions: Electron.SaveDialogOptions = {
-        title: 'Trim & Save',
-        defaultPath,
-        filters: [{ name: filterName, extensions: [ext] }]
-      }
-      const { canceled, filePath } = callerWindow
-        ? await dialog.showSaveDialog(callerWindow, dialogOptions)
-        : await dialog.showSaveDialog(dialogOptions)
+      const ext: 'mp4' | 'webm' = payload.inputPath.toLowerCase().endsWith('.mp4') ? 'mp4' : 'webm'
+      const { canceled, filePath } = await buildVideoDialogForExt(callerWindow, ext, 'dialog.trimAndSave')
       if (canceled || !filePath) return { success: false, error: 'Save cancelled' }
 
       const result = await trimVideo(payload.inputPath, filePath, payload.startSec, payload.endSec)

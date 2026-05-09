@@ -5,9 +5,7 @@ import { TrimEditor } from '../trim/TrimEditor'
 import { useTranslation } from '../hooks/useTranslation'
 import { t as i18nT } from '../../shared/i18n'
 
-interface Props {
-  onBack: () => void
-}
+interface Props {}
 
 interface StatusMessage {
   text: string
@@ -117,7 +115,7 @@ const IconLoading = () => (
   </svg>
 )
 
-export function HistoryPanel({ onBack }: Props) {
+export function HistoryPanel(_: Props) {
   const { t } = useTranslation()
   const [entries, setEntries] = useState<HistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -128,6 +126,11 @@ export function HistoryPanel({ onBack }: Props) {
   const [gifExportingId, setGifExportingId] = useState<string | null>(null)
   const [gifProgress, setGifProgress] = useState(0)
   const [trimEntry, setTrimEntry] = useState<HistoryEntry | null>(null)
+  // Bulk-select state. Empty Set means "not in select mode at all" so we
+  // don't clutter the UI with checkboxes until the user opts in.
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [confirmBulk, setConfirmBulk] = useState(false)
 
   const loadHistory = async () => {
     setLoading(true)
@@ -212,6 +215,67 @@ export function HistoryPanel({ onBack }: Props) {
     setStatus({ text: t('history.cleared'), type: 'info' })
   }
 
+  const enterSelectMode = () => {
+    setSelectMode(true)
+    setSelectedIds(new Set())
+    setConfirmBulk(false)
+  }
+
+  const exitSelectMode = () => {
+    setSelectMode(false)
+    setSelectedIds(new Set())
+    setConfirmBulk(false)
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+    setConfirmBulk(false)
+  }
+
+  const handleSelectAll = () => {
+    // "Tümünü seç" applies to whatever the current filter shows — selecting
+    // an entry the user can't see would be confusing.
+    const visibleIds = filtered.map(e => e.id)
+    const allSelected = visibleIds.every(id => selectedIds.has(id))
+    if (allSelected) {
+      // Already-everything-selected → deselect all visible
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        visibleIds.forEach(id => next.delete(id))
+        return next
+      })
+    } else {
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        visibleIds.forEach(id => next.add(id))
+        return next
+      })
+    }
+    setConfirmBulk(false)
+  }
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.size === 0) return
+    if (!confirmBulk) {
+      setConfirmBulk(true)
+      return
+    }
+    const ids = Array.from(selectedIds)
+    // Delete sequentially. The store reads/writes the JSON file, so parallel
+    // deletes would race; sequential is correct and the count is small.
+    for (const id of ids) {
+      try { await window.electronAPI.history.deleteEntry(id) } catch { /* keep going */ }
+    }
+    setEntries(prev => prev.filter(e => !selectedIds.has(e.id)))
+    setStatus({ text: t('history.bulkDeleted', { count: ids.length }), type: 'info' })
+    exitSelectMode()
+  }
+
   const handleGifExport = async (entry: HistoryEntry) => {
     setGifExportingId(entry.id)
     setGifProgress(0)
@@ -231,7 +295,7 @@ export function HistoryPanel({ onBack }: Props) {
 
       if (result.success) {
         setStatus({ text: t('history.gifSaved'), type: 'success' })
-      } else if (result.error === 'İptal edildi') {
+      } else if (result.error === 'CANCELLED') {
         setStatus({ text: t('history.gifCancelled'), type: 'info' })
       } else {
         setStatus({ text: result.error || t('history.gifError'), type: 'error' })
@@ -274,14 +338,50 @@ export function HistoryPanel({ onBack }: Props) {
             <IconVideo /> ({recordingCount})
           </button>
         </div>
-        {entries.length > 0 && (
-          <button
-            className={`history-clear-btn ${confirmClear ? 'history-clear-confirm' : ''}`}
-            onClick={handleClearAll}
-            onBlur={() => setConfirmClear(false)}
-          >
-            {confirmClear ? t('history.confirmClear') : t('history.clear')}
-          </button>
+        {entries.length > 0 && !selectMode && (
+          <>
+            <button
+              className="history-clear-btn"
+              onClick={enterSelectMode}
+              style={{ marginRight: '4px' }}
+            >
+              {t('history.selectMode')}
+            </button>
+            <button
+              className={`history-clear-btn ${confirmClear ? 'history-clear-confirm' : ''}`}
+              onClick={handleClearAll}
+              onBlur={() => setConfirmClear(false)}
+            >
+              {confirmClear ? t('history.confirmClear') : t('history.clear')}
+            </button>
+          </>
+        )}
+        {selectMode && (
+          <>
+            <button
+              className="history-clear-btn"
+              onClick={handleSelectAll}
+              style={{ marginRight: '4px' }}
+            >
+              {filtered.length > 0 && filtered.every(e => selectedIds.has(e.id))
+                ? t('history.deselectAll')
+                : t('history.selectAll')}
+            </button>
+            <button
+              className={`history-clear-btn ${confirmBulk ? 'history-clear-confirm' : ''}`}
+              onClick={handleDeleteSelected}
+              onBlur={() => setConfirmBulk(false)}
+              disabled={selectedIds.size === 0}
+              style={{ marginRight: '4px' }}
+            >
+              {confirmBulk
+                ? t('history.confirmDeleteSelected', { count: selectedIds.size })
+                : t('history.deleteSelected', { count: selectedIds.size })}
+            </button>
+            <button className="history-clear-btn" onClick={exitSelectMode}>
+              {t('history.cancelSelect')}
+            </button>
+          </>
         )}
       </div>
 
@@ -319,8 +419,25 @@ export function HistoryPanel({ onBack }: Props) {
       {/* History list */}
       {!loading && filtered.length > 0 && (
         <div className="history-list">
-          {filtered.map((entry) => (
-            <div key={entry.id} className="history-item" onDoubleClick={() => handleOpen(entry)}>
+          {filtered.map((entry) => {
+            const isSelected = selectedIds.has(entry.id)
+            return (
+            <div
+              key={entry.id}
+              className={`history-item ${selectMode && isSelected ? 'history-item-selected' : ''}`}
+              onDoubleClick={() => !selectMode && handleOpen(entry)}
+              onClick={selectMode ? () => toggleSelect(entry.id) : undefined}
+              style={selectMode ? { cursor: 'pointer' } : undefined}
+            >
+              {selectMode && (
+                <input
+                  type="checkbox"
+                  className="history-select-checkbox"
+                  checked={isSelected}
+                  onChange={() => toggleSelect(entry.id)}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              )}
               <div className="history-thumb">
                 {entry.thumbnailDataUrl ? (
                   <img src={entry.thumbnailDataUrl} alt="" />
@@ -415,7 +532,8 @@ export function HistoryPanel({ onBack }: Props) {
                 </button>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
 

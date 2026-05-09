@@ -186,13 +186,23 @@ export interface ElectronAPI {
 
   settings: {
     get: () => Promise<AppSettings>
-    save: (settings: AppSettings) => Promise<void>
+    save: (settings: AppSettings) => Promise<{
+      success: boolean
+      error?: string
+      failedHotkeys?: { type: string; hotkey: string }[]
+    }>
     selectDir: () => Promise<string | null>
   }
 
   upload: {
     screenshot: (dataUrl: string) => Promise<UploadResult>
     file: (filePath: string, fileType: 'screenshot' | 'recording') => Promise<UploadResult>
+  }
+
+  log: {
+    error: (scope: string, message: string) => void
+    warn: (scope: string, message: string) => void
+    showFolder: () => void
   }
 }
 

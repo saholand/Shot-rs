@@ -1,14 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { AppSettings } from '../../shared/types/settings'
-import { DEFAULT_SETTINGS } from '../../shared/types/settings'
+import { DEFAULT_SETTINGS, resolveFileName } from '../../shared/types/settings'
 import { useTranslation } from '../hooks/useTranslation'
 import { setLanguage as setI18nLanguage } from '../../shared/i18n'
+import { APP_NAME } from '../../shared/constants'
 
 interface CameraOption { deviceId: string; label: string }
 
-interface Props {
-  onBack: () => void
-}
+interface Props {}
 
 interface StatusMessage {
   text: string
@@ -110,7 +109,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return <div className="settings-section-title">{children}</div>
 }
 
-export function SettingsPanel({ onBack }: Props) {
+export function SettingsPanel(_: Props) {
   const { t, language, setLanguage } = useTranslation()
   const [settings, setSettings] = useState<AppSettings>({ ...DEFAULT_SETTINGS })
   const [loading, setLoading] = useState(true)
@@ -133,12 +132,18 @@ export function SettingsPanel({ onBack }: Props) {
   }, [])
 
   useEffect(() => {
-    window.electronAPI.settings.get().then((s) => {
-      setSettings(s)
-      // Sync i18n language with saved setting
-      if (s.language) setI18nLanguage(s.language)
-      setLoading(false)
-    })
+    window.electronAPI.settings.get()
+      .then((s) => {
+        setSettings(s)
+        // Sync i18n language with saved setting
+        if (s.language) setI18nLanguage(s.language)
+      })
+      .catch(() => {
+        // IPC failed — keep DEFAULT_SETTINGS so the panel is usable instead
+        // of stuck on the loading state forever.
+        setStatus({ text: t('settings.saveFailed'), type: 'error' })
+      })
+      .finally(() => setLoading(false))
   }, [])
 
   // Auto-dismiss status
@@ -167,9 +172,46 @@ export function SettingsPanel({ onBack }: Props) {
   const handleClearDir = () => update('defaultSaveDir', '')
 
   const handleSave = async () => {
-    await window.electronAPI.settings.save(settings)
-    setDirty(false)
-    setStatus({ text: t('settings.settingsSaved'), type: 'success' })
+    // Client-side guard: refuse plaintext upload server URL before round-tripping
+    // to main. Same check runs in main as defense-in-depth.
+    const trimmedUrl = settings.uploadServerUrl.trim()
+    if (trimmedUrl) {
+      try {
+        const proto = new URL(trimmedUrl).protocol
+        if (proto !== 'https:') {
+          setStatus({ text: t('settings.uploadHttpsRequired'), type: 'error' })
+          return
+        }
+      } catch {
+        setStatus({ text: t('settings.uploadInvalidUrl'), type: 'error' })
+        return
+      }
+    }
+
+    try {
+      const result = await window.electronAPI.settings.save(settings)
+      if (!result.success) {
+        setStatus({ text: result.error || t('settings.saveFailed'), type: 'error' })
+        return
+      }
+      setDirty(false)
+      // Hotkey register conflicts are reported as a list; pinpoint the
+      // first conflicting shortcut so the user knows which to change.
+      if (result.failedHotkeys && result.failedHotkeys.length > 0) {
+        const first = result.failedHotkeys[0]
+        const text = result.failedHotkeys.length === 1
+          ? t('settings.hotkeyConflict', { hotkey: first.hotkey })
+          : t('settings.hotkeyConflictMulti', { count: result.failedHotkeys.length })
+        setStatus({ text, type: 'error' })
+      } else if (result.error) {
+        setStatus({ text: result.error, type: 'info' })
+      } else {
+        setStatus({ text: t('settings.settingsSaved'), type: 'success' })
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : t('settings.saveFailed')
+      setStatus({ text: msg, type: 'error' })
+    }
   }
 
   if (loading) {
@@ -232,8 +274,8 @@ export function SettingsPanel({ onBack }: Props) {
             value={settings.language || 'tr'}
             onChange={(e) => handleLanguageChange(e.target.value as 'tr' | 'en')}
           >
-            <option value="tr">Türkçe</option>
-            <option value="en">English</option>
+            <option value="tr">{t('settings.languageTr')}</option>
+            <option value="en">{t('settings.languageEn')}</option>
           </select>
         </div>
 
@@ -375,11 +417,11 @@ export function SettingsPanel({ onBack }: Props) {
             onChange={(e) => update('recordingMaxDurationSec', e.target.value === '' ? null : parseInt(e.target.value, 10))}
           >
             <option value="">{t('settings.maxDurationNone')}</option>
-            <option value="60">1 dk</option>
-            <option value="300">5 dk</option>
-            <option value="900">15 dk</option>
-            <option value="1800">30 dk</option>
-            <option value="3600">1 saat</option>
+            <option value="60">{t('settings.duration1m')}</option>
+            <option value="300">{t('settings.duration5m')}</option>
+            <option value="900">{t('settings.duration15m')}</option>
+            <option value="1800">{t('settings.duration30m')}</option>
+            <option value="3600">{t('settings.duration1h')}</option>
           </select>
         </div>
 
@@ -510,6 +552,9 @@ export function SettingsPanel({ onBack }: Props) {
             onChange={(e) => update('screenshotFileNameFormat', e.target.value)}
             placeholder="screenshot-{timestamp}"
           />
+          <span className="settings-item-desc settings-filename-preview">
+            {t('settings.filenamePreview')} {resolveFileName(settings.screenshotFileNameFormat || 'screenshot-{timestamp}', 'png')}
+          </span>
         </div>
 
         <div className="settings-item settings-item-col">
@@ -523,6 +568,9 @@ export function SettingsPanel({ onBack }: Props) {
             onChange={(e) => update('recordingFileNameFormat', e.target.value)}
             placeholder="recording-{timestamp}"
           />
+          <span className="settings-item-desc settings-filename-preview">
+            {t('settings.filenamePreview')} {resolveFileName(settings.recordingFileNameFormat || 'recording-{timestamp}', settings.videoFormat)}
+          </span>
         </div>
 
         {/* ── Advanced ── */}
@@ -537,8 +585,25 @@ export function SettingsPanel({ onBack }: Props) {
             className="settings-input"
             value={settings.uploadServerUrl}
             onChange={(e) => update('uploadServerUrl', e.target.value)}
-            placeholder="http://localhost:3500"
+            placeholder="https://upload.example.com"
           />
+        </div>
+
+        {/* ── Diagnostics ── */}
+        <SectionTitle>{t('settings.diagnostics')}</SectionTitle>
+
+        <div className="settings-item">
+          <div className="settings-item-info">
+            <span className="settings-item-label">{t('settings.openLogs')}</span>
+            <span className="settings-item-desc">{t('settings.openLogsDesc')}</span>
+          </div>
+          <button
+            className="back-btn"
+            style={{ marginTop: 0 }}
+            onClick={() => window.electronAPI.log.showFolder()}
+          >
+            {t('settings.openLogs')}
+          </button>
         </div>
       </div>
 
@@ -554,7 +619,7 @@ export function SettingsPanel({ onBack }: Props) {
         {status && (
           <span className={`settings-status status-${status.type}`}>{status.text}</span>
         )}
-        <span className="settings-version">Shotirs v1.0.0</span>
+        <span className="settings-version">{APP_NAME} v{__APP_VERSION__}</span>
       </div>
     </div>
   )

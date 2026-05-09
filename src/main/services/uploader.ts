@@ -2,6 +2,7 @@ import { readFileSync } from 'fs'
 import { basename } from 'path'
 import { clipboard } from 'electron'
 import { getSetting } from './settings-store'
+import { tMain } from './i18n-main'
 
 export interface UploadResult {
   success: boolean
@@ -13,41 +14,58 @@ export interface UploadResult {
 const TIMEOUT_SCREENSHOT = 30_000
 const TIMEOUT_RECORDING = 120_000
 
+// Hard caps on upload payload size. A buggy renderer that hands us a
+// 10 GB buffer would otherwise OOM the main process or hang it for
+// minutes; reject early with a clear error.
+const MAX_SCREENSHOT_BYTES = 50 * 1024 * 1024   // 50 MB
+const MAX_RECORDING_BYTES = 500 * 1024 * 1024   // 500 MB
+
 function httpErrorMessage(status: number, body: Record<string, unknown>): string {
   const serverMsg = body.error as string | undefined
 
   switch (status) {
     case 400:
-      return serverMsg || 'Geçersiz istek'
+      return serverMsg || tMain('upload.badRequest')
     case 413:
-      return 'Dosya boyutu sunucu limitini aşıyor'
+      return tMain('upload.serverLimit')
     case 429:
-      return 'Çok fazla istek — biraz bekleyip tekrar deneyin'
+      return tMain('upload.rateLimited')
     default:
-      if (status >= 500) return serverMsg || 'Sunucu hatası — daha sonra tekrar deneyin'
-      return serverMsg || `Beklenmeyen hata (HTTP ${status})`
+      if (status >= 500) return serverMsg || tMain('upload.serverError')
+      return serverMsg || tMain('upload.unexpectedHttp', { status })
   }
 }
 
 function classifyNetworkError(err: unknown): string {
-  if (!(err instanceof Error)) return 'Upload başarısız'
+  if (!(err instanceof Error)) return tMain('upload.failed')
 
   if (err.name === 'AbortError') {
-    return 'Bağlantı zaman aşımına uğradı'
+    return tMain('upload.timedOut')
   }
 
   const msg = err.message.toLowerCase()
   if (msg.includes('fetch failed') || msg.includes('econnrefused') || msg.includes('enotfound')) {
-    return 'Sunucuya bağlanılamadı — adres ve bağlantınızı kontrol edin'
+    return tMain('upload.cantReach')
   }
   if (msg.includes('econnreset') || msg.includes('socket hang up')) {
-    return 'Bağlantı kesildi — tekrar deneyin'
+    return tMain('upload.disconnected')
   }
 
   return err.message
 }
 
-async function doUploadLitterbox(
+/** Network failures that are worth retrying (transient connectivity issues
+ *  the user is likely to recover from). HTTP-level errors are NOT retried —
+ *  413 (too large) and 429 (rate limited) won't get better on retry. */
+function isTransientError(result: UploadResult): boolean {
+  if (result.success || !result.error) return false
+  const e = result.error.toLowerCase()
+  return e.includes('timed out') || e.includes('zaman aşım') ||
+         e.includes('reach the server') || e.includes('bağlanılamadı') ||
+         e.includes('disconnected') || e.includes('bağlantı kesil')
+}
+
+async function doUploadLitterboxOnce(
   buffer: Buffer,
   fileName: string,
   mimeType: string
@@ -71,7 +89,7 @@ async function doUploadLitterbox(
     const text = (await response.text()).trim()
 
     if (!response.ok || !text.startsWith('https://')) {
-      return { success: false, error: text || `Upload başarısız (HTTP ${response.status})` }
+      return { success: false, error: text || tMain('upload.unexpectedHttp', { status: response.status }) }
     }
 
     clipboard.writeText(text)
@@ -83,17 +101,27 @@ async function doUploadLitterbox(
   }
 }
 
-async function doUpload(
+async function doUploadLitterbox(
+  buffer: Buffer,
+  fileName: string,
+  mimeType: string
+): Promise<UploadResult> {
+  // One retry on transient network errors. Mobile / flaky-wifi users get a
+  // second chance without seeing the error toast. Backoff is small (1s)
+  // because longer waits feel like the app froze.
+  const first = await doUploadLitterboxOnce(buffer, fileName, mimeType)
+  if (first.success || !isTransientError(first)) return first
+  await new Promise(r => setTimeout(r, 1000))
+  return doUploadLitterboxOnce(buffer, fileName, mimeType)
+}
+
+async function doUploadCustomOnce(
   buffer: Buffer,
   fileName: string,
   mimeType: string,
-  fileType: 'screenshot' | 'recording'
+  fileType: 'screenshot' | 'recording',
+  serverUrl: string
 ): Promise<UploadResult> {
-  const serverUrl = getSetting('uploadServerUrl')
-  if (!serverUrl) {
-    return doUploadLitterbox(buffer, fileName, mimeType)
-  }
-
   const timeout = fileType === 'recording' ? TIMEOUT_RECORDING : TIMEOUT_SCREENSHOT
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeout)
@@ -134,9 +162,47 @@ async function doUpload(
   }
 }
 
+async function doUpload(
+  buffer: Buffer,
+  fileName: string,
+  mimeType: string,
+  fileType: 'screenshot' | 'recording'
+): Promise<UploadResult> {
+  const sizeLimit = fileType === 'recording' ? MAX_RECORDING_BYTES : MAX_SCREENSHOT_BYTES
+  if (buffer.length > sizeLimit) {
+    const limitMB = Math.round(sizeLimit / (1024 * 1024))
+    const key = fileType === 'recording' ? 'upload.tooLargeRecording' : 'upload.tooLargeScreenshot'
+    return { success: false, error: tMain(key, { limit: limitMB }) }
+  }
+
+  const serverUrl = getSetting('uploadServerUrl')
+  if (!serverUrl) {
+    return doUploadLitterbox(buffer, fileName, mimeType)
+  }
+
+  // Enforce HTTPS for custom upload servers — recording payloads can be
+  // hundreds of MB and may contain sensitive screen contents; refuse to
+  // ship them over plaintext HTTP.
+  try {
+    const proto = new URL(serverUrl).protocol
+    if (proto !== 'https:') {
+      return { success: false, error: tMain('upload.httpsRequired') }
+    }
+  } catch {
+    return { success: false, error: tMain('upload.invalidUrl') }
+  }
+
+  // Same single-retry policy as Litterbox — transient connectivity errors
+  // (timeout, DNS hiccup) get a second chance.
+  const first = await doUploadCustomOnce(buffer, fileName, mimeType, fileType, serverUrl)
+  if (first.success || !isTransientError(first)) return first
+  await new Promise(r => setTimeout(r, 1000))
+  return doUploadCustomOnce(buffer, fileName, mimeType, fileType, serverUrl)
+}
+
 export async function uploadScreenshot(dataUrl: string): Promise<UploadResult> {
   const match = dataUrl.match(/^data:[^;]+;base64,(.+)$/)
-  if (!match) return { success: false, error: 'Geçersiz data URL' }
+  if (!match) return { success: false, error: tMain('upload.invalidDataUrl') }
 
   const buffer = Buffer.from(match[1], 'base64')
   return doUpload(buffer, 'screenshot.png', 'image/png', 'screenshot')
@@ -152,7 +218,7 @@ export async function uploadFile(
     const fileName = basename(filePath)
     return doUpload(buffer, fileName, mimeType, fileType)
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Dosya okunamadı'
+    const message = err instanceof Error ? err.message : tMain('upload.cantReadFile')
     return { success: false, error: message }
   }
 }

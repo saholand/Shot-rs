@@ -1,4 +1,5 @@
 import type { SelectionRegion } from '../../shared/types/ipc'
+import { useTranslation } from '../hooks/useTranslation'
 
 interface SelectionCanvasProps {
   region: SelectionRegion | null
@@ -7,6 +8,7 @@ interface SelectionCanvasProps {
 }
 
 export function SelectionCanvas({ region, isSelecting, hideHint }: SelectionCanvasProps) {
+  const { t } = useTranslation()
   if (!region || (region.width < 2 && region.height < 2)) {
     return <div className="overlay-dim overlay-dim-full" />
   }
@@ -41,7 +43,7 @@ export function SelectionCanvas({ region, isSelecting, hideHint }: SelectionCanv
           className="selection-hint"
           style={{ left: x + width / 2, top: y + height + 8 }}
         >
-          ESC ile iptal et
+          {t('overlay.cancelHint')}
         </div>
       )}
     </>

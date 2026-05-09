@@ -93,8 +93,15 @@ function registerKey(hotkey: string, callback: () => void, type: HotkeyType, att
   return false
 }
 
-/** Re-register hotkeys after settings change */
-export function reRegisterHotkeys(): void {
+/** Result of a re-register pass — lists hotkeys that failed to bind so
+ *  the UI can warn the user (e.g. another app already owns PrintScreen). */
+export interface HotkeyRegisterResult {
+  failed: { type: HotkeyType; hotkey: string }[]
+}
+
+/** Re-register hotkeys after settings change. Returns the list of hotkeys
+ *  that failed to register so the renderer can surface a clear warning. */
+export function reRegisterHotkeys(): HotkeyRegisterResult {
   // Unregister old keys
   if (currentScreenshotKey) {
     try { globalShortcut.unregister(currentScreenshotKey) } catch { /* ignore */ }
@@ -113,23 +120,29 @@ export function reRegisterHotkeys(): void {
     currentOCRKey = null
   }
 
-  // Re-register with new settings
+  const failed: HotkeyRegisterResult['failed'] = []
+
+  // Re-register with new settings. Capture failures synchronously — the
+  // retry timer in registerKey doesn't help us here because the renderer
+  // is waiting on the IPC reply.
   if (screenshotCallback) {
     const key = getSetting('screenshotHotkey') || DEFAULT_SCREENSHOT_HOTKEY
-    registerKey(key, screenshotCallback, 'screenshot')
+    if (!tryRegister(key, screenshotCallback, 'screenshot')) failed.push({ type: 'screenshot', hotkey: key })
   }
   if (recordingCallback) {
     const key = getSetting('recordingHotkey') || DEFAULT_RECORDING_HOTKEY
-    registerKey(key, recordingCallback, 'recording')
+    if (!tryRegister(key, recordingCallback, 'recording')) failed.push({ type: 'recording', hotkey: key })
   }
   if (annotationCallback) {
     const key = getSetting('annotationHotkey') || DEFAULT_ANNOTATION_HOTKEY
-    registerKey(key, annotationCallback, 'annotation')
+    if (!tryRegister(key, annotationCallback, 'annotation')) failed.push({ type: 'annotation', hotkey: key })
   }
   if (ocrCallback) {
     const key = getSetting('ocrHotkey') || DEFAULT_OCR_HOTKEY
-    registerKey(key, ocrCallback, 'ocr')
+    if (!tryRegister(key, ocrCallback, 'ocr')) failed.push({ type: 'ocr', hotkey: key })
   }
+
+  return { failed }
 }
 
 export function unregisterAll(): void {

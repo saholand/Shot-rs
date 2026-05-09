@@ -61,7 +61,9 @@ export function createHighlighterCursorWindow(): BrowserWindow {
     cursorWindow.loadFile(join(__dirname, '../renderer/highlighter-cursor.html'))
   }
 
-  cursorWindow.on('closed', () => { cursorWindow = null })
+  // Async close → late 'closed' event could null a newer window's ref.
+  const win = cursorWindow
+  win.on('closed', () => { if (cursorWindow === win) cursorWindow = null })
 
   return cursorWindow
 }

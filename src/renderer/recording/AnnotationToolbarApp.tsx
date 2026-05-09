@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { AnnotationTool, CoverStyle } from '../../shared/types/annotation'
 import type { AnnotationCommand } from '../../shared/types/ipc'
-import { t } from '../../shared/i18n'
+import { useTranslation } from '../hooks/useTranslation'
 import './live-annotation.css'
 
 type LiveTool = 'pen' | 'arrow' | 'rectangle' | 'line' | 'highlight' | 'cover' | 'ocr' | 'text' | 'zoom'
@@ -17,27 +17,10 @@ type SpotDim = 'low' | 'medium' | 'high'
 const PRESET_COLORS = ['#ff0000', '#4fa3f7', '#28a745', '#ffc107', '#ffffff', '#000000']
 const RECENT_COLORS_LIMIT = 4
 
-const STROKE_WIDTHS: { id: StrokeWidth; dot: number; label: string }[] = [
-  { id: 'thin', dot: 3, label: t('toolbar.thin') },
-  { id: 'medium', dot: 5, label: t('toolbar.medium') },
-  { id: 'thick', dot: 8, label: t('toolbar.thick') }
-]
-
 const FONT_SIZES: { id: FontSize; label: string }[] = [
   { id: 'small', label: 'S' },
   { id: 'medium', label: 'M' },
   { id: 'large', label: 'L' }
-]
-
-const ARROW_STYLES: { id: ArrowStyle; label: string }[] = [
-  { id: 'filled', label: t('toolbar.arrowFilled') },
-  { id: 'outline', label: t('toolbar.arrowOutline') }
-]
-
-const ERASER_SIZES: { id: EraserSize; label: string; dot: number }[] = [
-  { id: 'small', label: t('toolbar.eraserSmall'), dot: 6 },
-  { id: 'medium', label: t('toolbar.eraserMed'), dot: 10 },
-  { id: 'large', label: t('toolbar.eraserLarge'), dot: 14 }
 ]
 
 /** Tools that have something to show in the sub-bar. Note: in live mode
@@ -50,18 +33,36 @@ const ZOOM_PRESETS: { value: number; label: string }[] = [
   { value: 3,   label: '3×'   }
 ]
 
-const COVER_STYLES: { id: CoverStyle; label: string }[] = [
-  { id: 'noise', label: t('liveToolbar.coverNoise') },
-  { id: 'pixelate', label: t('liveToolbar.coverPixelate') },
-  { id: 'solid', label: t('liveToolbar.coverSolid') },
-  { id: 'frosted', label: t('liveToolbar.coverFrosted') }
-]
-
 function isHexColor(s: string): boolean {
   return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(s.trim())
 }
 
 export function AnnotationToolbarApp() {
+  // useTranslation triggers a re-render whenever the language changes;
+  // arrays that interpolate t(...) live inside the component so they
+  // pick up the new strings instead of being frozen at module-load time
+  // (toolbar runs in its own renderer process).
+  const { t } = useTranslation()
+  const STROKE_WIDTHS: { id: StrokeWidth; dot: number; label: string }[] = [
+    { id: 'thin', dot: 3, label: t('toolbar.thin') },
+    { id: 'medium', dot: 5, label: t('toolbar.medium') },
+    { id: 'thick', dot: 8, label: t('toolbar.thick') }
+  ]
+  const ARROW_STYLES: { id: ArrowStyle; label: string }[] = [
+    { id: 'filled', label: t('toolbar.arrowFilled') },
+    { id: 'outline', label: t('toolbar.arrowOutline') }
+  ]
+  const ERASER_SIZES: { id: EraserSize; label: string; dot: number }[] = [
+    { id: 'small', label: t('toolbar.eraserSmall'), dot: 6 },
+    { id: 'medium', label: t('toolbar.eraserMed'), dot: 10 },
+    { id: 'large', label: t('toolbar.eraserLarge'), dot: 14 }
+  ]
+  const COVER_STYLES: { id: CoverStyle; label: string }[] = [
+    { id: 'noise', label: t('liveToolbar.coverNoise') },
+    { id: 'pixelate', label: t('liveToolbar.coverPixelate') },
+    { id: 'solid', label: t('liveToolbar.coverSolid') },
+    { id: 'frosted', label: t('liveToolbar.coverFrosted') }
+  ]
   const [activeTool, setActiveTool] = useState<AnnotationTool | null>('pen')
   const [activeColor, setActiveColor] = useState('#ff0000')
   const [recentColors, setRecentColors] = useState<string[]>([])

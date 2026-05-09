@@ -9,7 +9,7 @@ import { setLanguage } from '../shared/i18n'
 type ViewMode = 'bar' | 'recording' | 'history' | 'settings'
 
 const SIZES: Record<ViewMode, { width: number; height: number }> = {
-  bar:       { width: 420, height: 48 },
+  bar:       { width: 400, height: 48 },
   recording: { width: 420, height: 520 },
   history:   { width: 420, height: 520 },
   settings:  { width: 420, height: 520 }
@@ -59,7 +59,7 @@ export default function App() {
     window.electronAPI.recording.checkRecovery().then(list => {
       if (list.length > 0) {
         setRecoveryList(list)
-        window.electronAPI.app.resize(420, 48 + list.length * 44)
+        window.electronAPI.app.resize(400, 48 + list.length * 44)
       }
     })
   }, [])
@@ -133,7 +133,7 @@ export default function App() {
           </div>
         </div>
         <div className={recActive ? '' : 'exp-content'}>
-          <RecordingPanel onBack={goBack} onRecordingStart={handleRecStart} onRecordingEnd={handleRecEnd} compact={recActive} />
+          <RecordingPanel onRecordingStart={handleRecStart} onRecordingEnd={handleRecEnd} compact={recActive} />
         </div>
       </div>
     )
@@ -163,7 +163,7 @@ export default function App() {
           </div>
         </div>
         <div className="exp-content">
-          <Panel onBack={goBack} />
+          <Panel />
         </div>
       </div>
     )
@@ -188,7 +188,7 @@ export default function App() {
       )}
 
       <button className="bar-btn bar-capture" onClick={handleScreenshot} title={t('app.screenshotTooltip')}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
           <rect x="3" y="5" width="18" height="14" rx="2" />
           <circle cx="12" cy="12" r="3" />
           <path d="M8 5V3h8v2" />
@@ -196,7 +196,7 @@ export default function App() {
       </button>
 
       <button className="bar-btn bar-record" onClick={handleRecording} title={t('app.recording')}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
           <circle cx="12" cy="12" r="9" />
           <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />
         </svg>
@@ -205,14 +205,14 @@ export default function App() {
       <div className="bar-sep" />
 
       <button className="bar-btn bar-text-btn" onClick={() => switchView('history')} title={t('app.captures')}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
           <path d="M3 3v18h18" /><rect x="7" y="10" width="3" height="8" rx="1" /><rect x="12" y="6" width="3" height="12" rx="1" /><rect x="17" y="13" width="3" height="5" rx="1" />
         </svg>
         <span>{t('app.captures')}</span>
       </button>
 
       <button className="bar-btn" onClick={() => switchView('settings')} title={t('app.settings')}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
           <circle cx="12" cy="12" r="3" />
           <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" />
         </svg>
@@ -225,13 +225,13 @@ export default function App() {
         onClick={handlePin}
         title={pinned ? t('app.unpin') : t('app.pin')}
       >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill={pinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill={pinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8">
           <path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z" />
         </svg>
       </button>
 
       <button className="bar-btn bar-close" onClick={handleClose} title={t('app.close')}>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <path d="M18 6L6 18M6 6l12 12" />
         </svg>
       </button>

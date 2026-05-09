@@ -6,12 +6,16 @@ import { captureAndCrop } from '../screenshot/capture'
 import { getAnnotationOverlay, getAnnotationDisplay } from '../windows/annotation-overlay-window'
 import { showAnnotationToolbar } from '../windows/annotation-toolbar-window'
 import { getMainWindow } from '../windows/main-window'
+import { tMain } from '../services/i18n-main'
 import type { SelectionRegion } from '../../shared/types/ipc'
 
 // Lazy-load tesseract.js to avoid interfering with electron startup
 let TesseractModule: typeof import('tesseract.js') | null = null
 let worker: import('tesseract.js').Worker | null = null
-let workerLoading = false
+// Promise-based init lock. Two callers racing into getWorker() share the
+// same in-flight init promise instead of the boolean+sleep pattern that
+// could let both spawn a worker.
+let workerInit: Promise<import('tesseract.js').Worker> | null = null
 
 // Serialize concurrent recognize() calls — a single tesseract worker can
 // only process one job at a time; parallel calls cause "TesseractError:
@@ -51,32 +55,51 @@ function resolveTessdataDir(): string | null {
 
 export async function getWorker(): Promise<import('tesseract.js').Worker> {
   if (worker) return worker
-  if (workerLoading) {
-    while (workerLoading) {
-      await new Promise(r => setTimeout(r, 100))
-    }
-    if (worker) return worker
+  if (!workerInit) {
+    workerInit = (async () => {
+      const Tesseract = await getTesseract()
+      const tessdataDir = resolveTessdataDir()
+      const options: Record<string, unknown> = {}
+      if (tessdataDir) {
+        // tesseract.js accepts a local filesystem path here and looks for
+        // `<langPath>/<lang>.traineddata` (uncompressed).
+        options.langPath = tessdataDir
+        options.gzip = false
+        options.cacheMethod = 'none'
+      }
+      const w = await Tesseract.createWorker(['eng', 'tur'], 1, options)
+      worker = w
+      return w
+    })().catch(err => {
+      // On failure, drop the cached promise so the next caller can retry
+      // instead of repeatedly resolving to the same rejected init.
+      workerInit = null
+      throw err
+    })
   }
-  workerLoading = true
-  try {
-    const Tesseract = await getTesseract()
-    const tessdataDir = resolveTessdataDir()
-    const options: Record<string, unknown> = {}
-    if (tessdataDir) {
-      // tesseract.js accepts a local filesystem path here and looks for
-      // `<langPath>/<lang>.traineddata` (uncompressed).
-      options.langPath = tessdataDir
-      options.gzip = false
-      options.cacheMethod = 'none'
-    }
-    worker = await Tesseract.createWorker(['eng', 'tur'], 1, options)
-    return worker
-  } finally {
-    workerLoading = false
-  }
+  return workerInit
+}
+
+// Tesseract.js loads the entire image into the worker's heap before
+// processing. Above this threshold the worker can lock up the main
+// process for tens of seconds (or OOM on a 4K+ screenshot). Reject
+// early with a clear error.
+const OCR_MAX_IMAGE_BYTES = 50 * 1024 * 1024   // ≈ raw image after base64 decode
+
+/** Estimate the decoded byte size of a `data:` URL. Base64 has 4 output
+ *  chars per 3 input bytes, so decoded length ≈ payload * 0.75. */
+function estimateDataUrlBytes(dataUrl: string): number {
+  const idx = dataUrl.indexOf(',')
+  if (idx < 0) return dataUrl.length
+  const payload = dataUrl.length - idx - 1
+  return Math.floor(payload * 0.75)
 }
 
 export async function runRecognize(w: import('tesseract.js').Worker, image: string): Promise<{ text: string }> {
+  if (estimateDataUrlBytes(image) > OCR_MAX_IMAGE_BYTES) {
+    const limitMB = Math.round(OCR_MAX_IMAGE_BYTES / (1024 * 1024))
+    throw new Error(tMain('error.ocrImageTooLarge', { limit: limitMB }))
+  }
   const next = recognizeChain.then(async () => {
     const result = await w.recognize(image)
     return { text: result.data.text.trim() }
@@ -107,6 +130,7 @@ export async function terminateWorker(): Promise<void> {
     try { await worker.terminate() } catch { /* ignore */ }
     worker = null
   }
+  workerInit = null
 }
 
 export function registerOCRIPC(): void {
@@ -138,12 +162,12 @@ export function registerOCRIPC(): void {
       restoreWindowOrder(overlay)
 
       if (!image || image.isEmpty()) {
-        return { success: false, error: 'Ekran yakalanamadı' }
+        return { success: false, error: tMain('error.captureFailed') }
       }
       const dataUrl = image.toDataURL()
       const w = await getWorker()
       const { text } = await runRecognize(w, dataUrl)
-      if (!text) return { success: false, error: 'Metin bulunamadı' }
+      if (!text) return { success: false, error: tMain('error.textNotFound') }
 
       // Copy via Electron clipboard (renderer window is focusable:false)
       clipboard.writeText(text)

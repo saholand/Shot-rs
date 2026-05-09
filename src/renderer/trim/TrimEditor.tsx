@@ -24,6 +24,10 @@ export function TrimEditor({ filePath, onClose, onSaved }: Props) {
   const [previewing, setPreviewing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Hard guard against double-click race — `saving` state has a render
+  // delay so a fast double-click can fire two ffmpeg jobs that both ask
+  // the user "where to save". The ref flips synchronously.
+  const savingRef = useRef(false)
 
   // Renderer can't read absolute file paths directly; main registered
   // a `local-media://` protocol that serves them.
@@ -42,6 +46,14 @@ export function TrimEditor({ filePath, onClose, onSaved }: Props) {
     return () => {
       v.removeEventListener('loadedmetadata', onMeta)
       v.removeEventListener('timeupdate', onTime)
+      // Release the underlying media resource on unmount. Without this the
+      // <video> can keep the file handle open after the modal closes,
+      // which on Windows would block the trimmed file's later rename.
+      try {
+        v.pause()
+        v.removeAttribute('src')
+        v.load()
+      } catch { /* ignore */ }
     }
   }, [])
 
@@ -93,6 +105,8 @@ export function TrimEditor({ filePath, onClose, onSaved }: Props) {
   }
 
   const handleSave = async () => {
+    if (savingRef.current) return
+    savingRef.current = true
     setSaving(true)
     setError(null)
     try {
@@ -110,6 +124,7 @@ export function TrimEditor({ filePath, onClose, onSaved }: Props) {
       setError(err instanceof Error ? err.message : t('trim.saveFailed'))
     }
     setSaving(false)
+    savingRef.current = false
   }
 
   const startPct = duration > 0 ? (start / duration) * 100 : 0

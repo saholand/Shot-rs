@@ -2,7 +2,7 @@ import { BrowserWindow, ipcMain, nativeImage } from 'electron'
 import { join } from 'path'
 import { isQuitting } from '../services/app-state'
 import { getSetting } from '../services/settings-store'
-import { IPC_CHANNELS } from '../../shared/constants'
+import { IPC_CHANNELS, APP_NAME } from '../../shared/constants'
 
 function loadAppIcon(): Electron.NativeImage | undefined {
   try {
@@ -26,14 +26,14 @@ export function createMainWindow(): BrowserWindow {
   }
 
   mainWindow = new BrowserWindow({
-    width: 420,
+    width: 400,
     height: 48,
     resizable: false,
     maximizable: false,
     minimizable: true,
     frame: false,
     transparent: true,
-    title: 'Shotırs',
+    title: APP_NAME,
     icon: loadAppIcon(),
     center: true,
     skipTaskbar: false,
@@ -58,8 +58,11 @@ export function createMainWindow(): BrowserWindow {
     }
   })
 
-  mainWindow.on('closed', () => {
-    mainWindow = null
+  // Async close → late 'closed' event could null a newer window's ref.
+  // Self-check: only clear the module ref if it still points at this win.
+  const win = mainWindow
+  win.on('closed', () => {
+    if (mainWindow === win) mainWindow = null
   })
 
   return mainWindow

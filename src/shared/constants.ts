@@ -114,5 +114,9 @@ export const IPC_CHANNELS = {
   // File operations (GIF export etc.)
   FILE_READ_BUFFER: 'file:read-buffer',
   FILE_SAVE_BUFFER: 'file:save-buffer',
-  HISTORY_COPY_FILE: 'history:copy-file'
+  HISTORY_COPY_FILE: 'history:copy-file',
+
+  // Production logger (renderer → main → file)
+  LOG_RENDERER: 'log:renderer',
+  LOG_SHOW_FOLDER: 'log:show-folder'
 } as const

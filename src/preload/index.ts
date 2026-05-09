@@ -123,6 +123,15 @@ const api: ElectronAPI = {
   upload: {
     screenshot: (dataUrl) => ipcRenderer.invoke(IPC_CHANNELS.UPLOAD_SCREENSHOT, dataUrl),
     file: (filePath, fileType) => ipcRenderer.invoke(IPC_CHANNELS.UPLOAD_FILE, filePath, fileType)
+  },
+  log: {
+    error: (scope: string, message: string) => {
+      ipcRenderer.send(IPC_CHANNELS.LOG_RENDERER, 'ERROR', scope, message)
+    },
+    warn: (scope: string, message: string) => {
+      ipcRenderer.send(IPC_CHANNELS.LOG_RENDERER, 'WARN', scope, message)
+    },
+    showFolder: () => ipcRenderer.send(IPC_CHANNELS.LOG_SHOW_FOLDER)
   }
 }
 

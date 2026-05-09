@@ -39,4 +39,6 @@ declare global {
     effectsAPI: EffectsAPI
     webcamAPI: WebcamAPI
   }
+  /** Inlined at build time from package.json version (electron.vite.config.ts). */
+  const __APP_VERSION__: string
 }

@@ -1,5 +1,6 @@
 import { app } from 'electron'
 import { join } from 'path'
+import { randomUUID } from 'crypto'
 import {
   existsSync, unlinkSync, mkdirSync,
   createWriteStream, readdirSync, statSync,
@@ -62,6 +63,11 @@ let currentStream: WriteStream | null = null
 let currentTempPath: string | null = null
 let currentMetaPath: string | null = null
 let currentSessionId: string | null = null
+// Captured if the underlying file stream errors mid-recording (most
+// commonly ENOSPC = disk full). We report this back through writeChunk's
+// return value so the renderer can stop the recording and show the user
+// a meaningful message instead of producing a half-written file.
+let streamError: Error | null = null
 
 function getTempDir(): string {
   const dir = join(app.getPath('userData'), TEMP_DIR_NAME)
@@ -86,11 +92,15 @@ function closeTempStream(): Promise<void> {
   })
 }
 
-/** Initialize a new temp file for a recording session. */
-export function initTempFile(mimeType: string, sourceName: string): string {
-  closeTempStream()
+/** Initialize a new temp file for a recording session.
+ *  Awaits closeTempStream so a back-to-back start can't race the previous
+ *  session's stream finish and truncate the new file. */
+export async function initTempFile(mimeType: string, sourceName: string): Promise<string> {
+  await closeTempStream()
 
-  const sessionId = `${TEMP_PREFIX}${Date.now()}`
+  // randomUUID() avoids the Date.now() collision window when two recordings
+  // start within the same millisecond (rare, but possible on hotkey burst).
+  const sessionId = `${TEMP_PREFIX}${randomUUID()}`
   const ext = mimeType.includes('mp4') ? 'mp4' : 'webm'
   const tempDir = getTempDir()
   const tempPath = join(tempDir, `${sessionId}.${ext}`)
@@ -106,6 +116,11 @@ export function initTempFile(mimeType: string, sourceName: string): string {
   writeFileSync(metaPath, JSON.stringify(meta), 'utf-8')
 
   currentStream = createWriteStream(tempPath, { flags: 'w' })
+  // Capture stream-level errors (disk full, permission revoked) so
+  // writeChunk can report them. Without this, the error is emitted on
+  // the stream and we'd silently lose chunks.
+  streamError = null
+  currentStream.on('error', (err) => { streamError = err })
   currentTempPath = tempPath
   currentMetaPath = metaPath
   currentSessionId = sessionId
@@ -113,9 +128,18 @@ export function initTempFile(mimeType: string, sourceName: string): string {
   return sessionId
 }
 
-/** Append a chunk to the current temp file. */
+/** Last error reported by the recording temp-file stream, if any. */
+export function getStreamError(): Error | null {
+  return streamError
+}
+
+/** Append a chunk to the current temp file. Returns false if the stream
+ *  has died (e.g. disk full); the caller should stop recording. */
 export function writeChunk(chunk: Buffer): boolean {
   if (!currentStream || currentStream.destroyed) return false
+  // A previous chunk's write surfaced an error event — refuse new chunks
+  // so we don't accumulate them in memory waiting on a dead stream.
+  if (streamError) return false
   currentStream.write(chunk)
 
   if (currentMetaPath && existsSync(currentMetaPath)) {

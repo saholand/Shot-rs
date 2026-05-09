@@ -7,6 +7,7 @@ import {
   deleteHistoryEntry,
   clearHistory
 } from '../services/history-store'
+import { tMain } from '../services/i18n-main'
 
 export function registerHistoryIPC(): void {
   ipcMain.handle(IPC_CHANNELS.HISTORY_GET_ALL, () => {
@@ -25,7 +26,7 @@ export function registerHistoryIPC(): void {
     IPC_CHANNELS.HISTORY_OPEN_FILE,
     async (_event, filePath: string): Promise<{ success: boolean; error?: string }> => {
       if (!existsSync(filePath)) {
-        return { success: false, error: 'Dosya bulunamadı. Silinmiş veya taşınmış olabilir.' }
+        return { success: false, error: tMain('error.fileNotFound') }
       }
       const result = await shell.openPath(filePath)
       if (result) {
@@ -45,16 +46,16 @@ export function registerHistoryIPC(): void {
     async (_event, filePath: string): Promise<{ success: boolean; error?: string }> => {
       try {
         if (!existsSync(filePath)) {
-          return { success: false, error: 'Dosya bulunamadı' }
+          return { success: false, error: tMain('error.fileNotFoundShort') }
         }
         const img = nativeImage.createFromPath(filePath)
         if (img.isEmpty()) {
-          return { success: false, error: 'Görüntü okunamadı' }
+          return { success: false, error: tMain('error.imageUnreadable') }
         }
         clipboard.writeImage(img)
         return { success: true }
       } catch (err) {
-        return { success: false, error: err instanceof Error ? err.message : 'Kopyalama hatası' }
+        return { success: false, error: err instanceof Error ? err.message : tMain('error.copyFailed') }
       }
     }
   )
@@ -80,12 +81,12 @@ export function registerHistoryIPC(): void {
           filters: [{ name: ext.toUpperCase(), extensions: [ext] }]
         })
         if (result.canceled || !result.filePath) {
-          return { success: false, error: 'İptal edildi' }
+          return { success: false, error: 'CANCELLED' }
         }
         writeFileSync(result.filePath, Buffer.from(buffer))
         return { success: true, filePath: result.filePath }
       } catch (err) {
-        return { success: false, error: err instanceof Error ? err.message : 'Kaydetme hatası' }
+        return { success: false, error: err instanceof Error ? err.message : tMain('error.saveError') }
       }
     }
   )

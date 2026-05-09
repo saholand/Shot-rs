@@ -46,7 +46,6 @@ export function createWebcamWindow(args: InitArgs): BrowserWindow {
     x = display.bounds.x + display.bounds.width - w - 24
     y = display.bounds.y + 60
   }
-  console.log(`[webcam] creating window at ${x},${y} ${w}×${h}, deviceId=${args.deviceId}`)
 
   webcamWindow = new BrowserWindow({
     x, y, width: w, height: h,
@@ -83,8 +82,10 @@ export function createWebcamWindow(args: InitArgs): BrowserWindow {
 
   // Persist position/size on close (if window lifecycle moves it later
   // we'll persist on each setBounds via the IPC handler below).
-  webcamWindow.on('closed', () => {
-    webcamWindow = null
+  // Async close → late 'closed' event could null a newer window's ref.
+  const win = webcamWindow
+  win.on('closed', () => {
+    if (webcamWindow === win) webcamWindow = null
   })
 
   return webcamWindow

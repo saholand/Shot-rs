@@ -6,6 +6,7 @@ import {
   STROKE_WIDTH_FACTORS, FONT_SIZE_FACTORS, ERASER_RADIUS,
   type ToolOptions
 } from '../annotation/hooks/useAnnotations'
+import { useTranslation } from '../hooks/useTranslation'
 
 interface EditingCanvasProps {
   imageDataUrl: string
@@ -58,6 +59,7 @@ export function EditingCanvas({
   onColorPick,
   onOCRRegion
 }: EditingCanvasProps) {
+  const { t } = useTranslation()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const imageRef = useRef<HTMLImageElement | null>(null)
   const [imageLoaded, setImageLoaded] = useState(false)
@@ -140,6 +142,26 @@ export function EditingCanvas({
     }
     img.src = imageDataUrl
   }, [imageDataUrl])
+
+  // Release the cached eyedropper ImageData and image ref when the editor
+  // unmounts. For 4K screenshots this is ~33 MB of pixel data the JS heap
+  // would otherwise hold onto until the overlay window itself is closed.
+  useEffect(() => {
+    return () => {
+      imageDataRef.current = null
+      imageRef.current = null
+    }
+  }, [])
+
+  // Eraser is a held-down drag tool: pointerdown sets erasingRef = true,
+  // pointerup clears it. If the window blurs mid-drag (Alt+Tab, modal dialog,
+  // OS menu), pointerup never fires and the next mousemove keeps erasing.
+  // Reset the flag whenever the window loses focus.
+  useEffect(() => {
+    const onBlur = () => { erasingRef.current = false }
+    window.addEventListener('blur', onBlur)
+    return () => window.removeEventListener('blur', onBlur)
+  }, [])
 
   // Hit test: find annotation under point
   const hitTest = useCallback((pt: Point): string | null => {
@@ -730,7 +752,7 @@ export function EditingCanvas({
           <div
             className="editing-text-handle"
             onMouseDown={handleTextDragStart}
-            title="Sürükle"
+            title={t('overlay.dragText')}
           >
             <span className="editing-text-grip">⋮⋮</span>
           </div>
@@ -738,7 +760,7 @@ export function EditingCanvas({
             className="editing-text-input"
             autoFocus
             value={textInput.value}
-            placeholder="Metin yaz..."
+            placeholder={t('overlay.textPlaceholder')}
             onChange={e => setTextInput({ ...textInput, value: e.target.value })}
             onKeyDown={e => {
               e.stopPropagation()

@@ -66,10 +66,14 @@ export function createAnnotationOverlay(): BrowserWindow {
   createAnnotationToolbar()
   hideAnnotationToolbar()
 
-  annotationWindow.on('closed', () => {
-    annotationWindow = null
-    annotationDisplay = null
-    drawMode = false
+  // Async close → late 'closed' event could null a newer window's ref.
+  const win = annotationWindow
+  win.on('closed', () => {
+    if (annotationWindow === win) {
+      annotationWindow = null
+      annotationDisplay = null
+      drawMode = false
+    }
   })
 
   return annotationWindow

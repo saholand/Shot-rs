@@ -27,3 +27,8 @@ npm-debug.log*
 # Temp
 .claude/
 *.tmp
+
+# electron-vite config compilation cache (timestamped sibling files)
+electron.vite.config.*.mjs
+electron.vite.config.*.js
+electron.vite.config.*.cjs

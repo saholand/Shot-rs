@@ -7,7 +7,6 @@ import type { AppSettings, VideoFormat } from '../../shared/types/settings'
 import { VIDEO_BITRATE, DEFAULT_SETTINGS } from '../../shared/types/settings'
 
 interface RecordingPanelProps {
-  onBack: () => void
   onRecordingStart?: () => void
   onRecordingEnd?: () => void
   compact?: boolean
@@ -43,7 +42,7 @@ function getSupportedMime(format: VideoFormat): string {
   return ''
 }
 
-export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compact }: RecordingPanelProps) {
+export function RecordingPanel({ onRecordingStart, onRecordingEnd, compact }: RecordingPanelProps) {
   const { t } = useTranslation()
   const [sources, setSources] = useState<DesktopSource[]>([])
   const [selectedSource, setSelectedSource] = useState<DesktopSource | null>(null)
@@ -183,11 +182,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
     const onZoomGo = (payload: { x: number; y: number; level: number }) => {
       if (isPausedRef.current) return
       const z = zoomStateRef.current
-      if (!z) {
-        console.warn('[RecordingPanel] zoom-go received but zoomStateRef is null')
-        return
-      }
-      console.log('[RecordingPanel] zoom-go', payload)
+      if (!z) return
       const sf = cropScaleFactorRef.current || window.devicePixelRatio || 1
       z.fromLevel = z.level
       z.fromCenterX = z.centerX
@@ -238,12 +233,25 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
     return () => window.electronAPI.recording.removeRegionSelectedListener()
   }, [])
 
-  // Cleanup on unmount
+  // Cleanup on unmount — must mirror cleanupStreams() so an unmount during
+  // active recording doesn't leak the document-level visibilitychange
+  // listener, the crop video element, or the AudioContext.
   useEffect(() => {
     return () => {
       if (cropAnimRef.current) {
         cancelAnimationFrame(cropAnimRef.current)
         cropAnimRef.current = null
+      }
+      if (cropVideoRef.current) {
+        const v = cropVideoRef.current as HTMLVideoElement & {
+          _onVis?: () => void
+          _interval?: ReturnType<typeof setInterval> | null
+        }
+        if (v._onVis) document.removeEventListener('visibilitychange', v._onVis)
+        if (v._interval) clearInterval(v._interval)
+        cropVideoRef.current.pause()
+        cropVideoRef.current.srcObject = null
+        cropVideoRef.current = null
       }
       if (cropStreamRef.current) {
         cropStreamRef.current.getTracks().forEach(t => t.stop())
@@ -254,6 +262,14 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
       }
       if (micStreamRef.current) {
         micStreamRef.current.getTracks().forEach(t => t.stop())
+      }
+      if (audioRafRef.current) {
+        cancelAnimationFrame(audioRafRef.current)
+        audioRafRef.current = null
+      }
+      if (audioCtxRef.current) {
+        audioCtxRef.current.close().catch(() => { /* ignore */ })
+        audioCtxRef.current = null
       }
     }
   }, [])
@@ -268,7 +284,6 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
     const source = overrideSource || selectedSource
     if (!source) return
 
-    console.log('[RecordingPanel] handleStartRecording begin', { source: source.id, region, isQuick })
     setStatus(null)
     setSavedFilePath(null)
     setIsPaused(false)
@@ -283,9 +298,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
     try {
       const useMic = isQuick ? false : micEnabled
       const useSystemAudio = settings.recordSystemAudio
-      console.log('[RecordingPanel] calling main RECORDING_START')
       const startResult = await window.electronAPI.recording.startRecording(source.id, source.name, useMic)
-      console.log('[RecordingPanel] RECORDING_START result:', startResult)
       if (!startResult.success) {
         setStatus({ text: startResult.error || t('recording.startFailed'), type: 'error' })
         return
@@ -503,7 +516,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
       // Initialize temp file for crash-safe recording
       const initResult = await window.electronAPI.recording.initTemp(mimeType, source.name)
       if (!initResult.success) {
-        setStatus({ text: initResult.error || 'Ge\u00e7ici dosya olu\u015fturulamad\u0131', type: 'error' })
+        setStatus({ text: initResult.error || t('recording.tempFileFailed'), type: 'error' })
         cleanupStreams()
         return
       }
@@ -523,9 +536,17 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
         ;(async () => {
           try {
             const buffer = await e.data.arrayBuffer()
-            await window.electronAPI.recording.writeChunk(buffer)
-          } catch (err) {
-            console.error('Failed to write chunk to disk:', err)
+            const result = await window.electronAPI.recording.writeChunk(buffer)
+            // Disk full (ENOSPC), permission revoked, etc. \u2014 main returns
+            // success:false. We can't keep recording into a dead stream,
+            // so stop now and show the user what went wrong.
+            if (!result.success) {
+              setStatus({ text: result.error || t('recording.errorDuring'), type: 'error' })
+              handleStopRecording()
+            }
+          } catch {
+            // IPC itself failed \u2014 log silently, the stream is likely already
+            // gone and onerror/onstop will fire to clean up.
           } finally {
             pendingWritesCountRef.current = Math.max(0, pendingWritesCountRef.current - 1)
           }
@@ -541,7 +562,6 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
       recorder.start(5000)
       mediaRecorderRef.current = recorder
       setSelectedSource(source)
-      console.log('[RecordingPanel] setPhase(recording) → compact bar should render')
       setPhase('recording')
       onRecordingStart?.()
 
@@ -552,7 +572,6 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('recording.cantStart')
-      console.error('[RecordingPanel] handleStartRecording threw:', err)
       setStatus({ text: msg, type: 'error' })
       cleanupStreams()
     }
@@ -659,12 +678,19 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
     await window.electronAPI.recording.stop()
 
     // Wait for final dataavailable + onstop, with a bounded timeout so a
-    // misbehaving recorder can't deadlock the UI.
+    // misbehaving recorder can't deadlock the UI. onerror also resolves
+    // — if the recorder fails between requestData and stop, we'd otherwise
+    // wait the full 5s for nothing.
     await new Promise<void>(resolve => {
       let resolved = false
       const done = () => { if (!resolved) { resolved = true; resolve() } }
       recorder.onstop = done
-      try { recorder.stop() } catch { done() }
+      recorder.onerror = done
+      try {
+        recorder.stop()
+      } catch {
+        done()
+      }
       setTimeout(done, 5000)
     })
 
@@ -705,12 +731,12 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
     try {
       const result = await window.electronAPI.upload.file(savedFilePath, 'recording')
       if (result.success) {
-        setStatus({ text: `Link kopyaland\u0131: ${result.url}`, type: 'success' })
+        setStatus({ text: t('recording.shareLinkCopied', { url: result.url ?? '' }), type: 'success' })
       } else {
-        setStatus({ text: result.error || 'Upload ba\u015far\u0131s\u0131z', type: 'error' })
+        setStatus({ text: result.error || t('recording.uploadFailed'), type: 'error' })
       }
     } catch {
-      setStatus({ text: 'Upload ba\u015far\u0131s\u0131z', type: 'error' })
+      setStatus({ text: t('recording.uploadFailed'), type: 'error' })
     }
     setUploading(false)
   }
@@ -781,39 +807,42 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
             loading={loading}
           />
 
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             <label className="mic-toggle">
-              <input
-                type="checkbox"
-                checked={micEnabled}
-                onChange={e => setMicEnabled(e.target.checked)}
-              />
+              <span className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={micEnabled}
+                  onChange={e => setMicEnabled(e.target.checked)}
+                />
+                <span className="settings-toggle-slider" />
+              </span>
               <span className="mic-toggle-label">{t('recording.microphone')}</span>
             </label>
 
             <label className="mic-toggle" title={t('recording.webcamHint')}>
-              <input
-                type="checkbox"
-                checked={settings.webcamEnabled}
-                onChange={async e => {
-                  const enabled = e.target.checked
-                  const next = { ...settings, webcamEnabled: enabled }
-                  setSettings(next)
-                  await window.electronAPI.settings.save(next)
-                  // Open or close the webcam window immediately so the
-                  // user can position / size it BEFORE the recording
-                  // starts (and during recording too).
-                  window.electronAPI.recording.toggleWebcam(enabled)
-                }}
-              />
+              <span className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={settings.webcamEnabled}
+                  onChange={async e => {
+                    const enabled = e.target.checked
+                    const next = { ...settings, webcamEnabled: enabled }
+                    setSettings(next)
+                    await window.electronAPI.settings.save(next)
+                    window.electronAPI.recording.toggleWebcam(enabled)
+                  }}
+                />
+                <span className="settings-toggle-slider" />
+              </span>
               <span className="mic-toggle-label">{t('recording.webcamToggle')}</span>
             </label>
           </div>
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button
-              className="mode-btn"
-              style={{ width: 'auto', padding: '12px 24px', opacity: selectedSource ? 1 : 0.4 }}
+              className="mode-btn mode-btn-primary"
+              style={{ width: 'auto', padding: '12px 24px' }}
               onClick={() => handleStartRecording()}
               disabled={!selectedSource}
             >
@@ -900,12 +929,6 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
             {uploading ? t('recording.uploading') : t('recording.shareBtn')}
           </button>
         </div>
-      )}
-
-      {phase === 'pick' && (
-        <button className="back-btn" onClick={onBack}>
-          {t('recording.back')}
-        </button>
       )}
 
       {trimOpen && savedFilePath && (

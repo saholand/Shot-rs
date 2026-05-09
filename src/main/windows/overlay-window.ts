@@ -6,6 +6,17 @@ import { getSetting } from '../services/settings-store'
 let overlayWindow: BrowserWindow | null = null
 let overlayDisplay: Electron.Display | null = null
 
+// Listeners notified when the overlay window closes for any reason
+// (normal cancel, OS-level close, crash recovery). screenshot-ipc.ts
+// uses this to reset its overlayMode so the next screenshot doesn't
+// inherit a stale 'ocr' or 'region' mode.
+const closeListeners = new Set<() => void>()
+
+export function onOverlayClosed(fn: () => void): () => void {
+  closeListeners.add(fn)
+  return () => { closeListeners.delete(fn) }
+}
+
 export function getOverlayDisplay(): Electron.Display | null {
   return overlayDisplay
 }
@@ -87,9 +98,19 @@ export async function createOverlayWindow(): Promise<BrowserWindow> {
     overlayWindow.loadFile(join(__dirname, '../renderer/overlay.html'))
   }
 
-  overlayWindow.on('closed', () => {
-    overlayWindow = null
-    overlayDisplay = null
+  // Async close → late 'closed' event could null a newer window's ref.
+  const win = overlayWindow
+  win.on('closed', () => {
+    if (overlayWindow === win) {
+      overlayWindow = null
+      overlayDisplay = null
+    }
+    // Always notify subscribers — even when this is the late closed event
+    // for a stale window, subscribers (e.g. screenshot-ipc resetting its
+    // overlayMode) need to know the overlay is gone.
+    closeListeners.forEach(fn => {
+      try { fn() } catch { /* ignore listener errors */ }
+    })
   })
 
   // Send screen bounds + pre-captured background to overlay after it loads

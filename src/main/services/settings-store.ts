@@ -1,6 +1,6 @@
 import { app } from 'electron'
 import { join } from 'path'
-import { readFileSync, writeFileSync, existsSync } from 'fs'
+import { readFileSync, writeFileSync, existsSync, statSync } from 'fs'
 import type { AppSettings } from '../../shared/types/settings'
 import { DEFAULT_SETTINGS } from '../../shared/types/settings'
 
@@ -38,4 +38,22 @@ export function saveSettings(settings: AppSettings): void {
 
 export function getSetting<K extends keyof AppSettings>(key: K): AppSettings[K] {
   return getSettings()[key]
+}
+
+/**
+ * Build the default path for a save dialog. Falls back to the bare
+ * filename if `defaultSaveDir` is empty, missing on disk (user moved /
+ * deleted it after setting), or no longer a directory. Without this
+ * guard, Electron would still open a dialog but the prefilled path
+ * would point to a vanished folder, confusing the user.
+ */
+export function resolveDefaultSavePath(fileName: string): string {
+  const dir = (getSetting('defaultSaveDir') ?? '').trim()
+  if (!dir) return fileName
+  try {
+    if (existsSync(dir) && statSync(dir).isDirectory()) {
+      return join(dir, fileName)
+    }
+  } catch { /* fall through to bare filename */ }
+  return fileName
 }

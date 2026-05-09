@@ -1,0 +1,53 @@
+# Builds Shotırs for Windows on every version tag and uploads the
+# installers as a GitHub Release. The packaged app's auto-updater then
+# detects the new release and prompts users on next launch.
+#
+# Trigger:
+#   git tag v1.2.3
+#   git push --tags
+#
+# What it produces:
+#   - Shotirs-Setup-1.2.3.exe (NSIS installer)
+#   - Shotirs-1.2.3-portable.exe (portable single-file)
+#   - latest.yml (auto-updater feed file)
+#
+# Manual trigger is also enabled (`workflow_dispatch`) so you can rebuild
+# without bumping the version — handy when iterating on the workflow itself.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # required to upload assets to the release
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build & publish to GitHub Release
+        env:
+          # electron-builder reads GH_TOKEN to upload the artifacts.
+          # GITHUB_TOKEN is auto-provided by Actions; permissions block
+          # above grants it write access to releases.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --publish always
