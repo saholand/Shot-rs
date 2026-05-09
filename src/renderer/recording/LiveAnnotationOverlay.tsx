@@ -5,6 +5,10 @@ import type { AnnotationMode, AnnotationCommand } from '../../shared/types/ipc'
 import type { AnnotationTool } from '../../shared/types/annotation'
 import './live-annotation.css'
 
+type StrokeWidth = 'thin' | 'medium' | 'thick'
+type FontSize = 'small' | 'medium' | 'large'
+type ArrowStyle = 'filled' | 'outline'
+
 /**
  * Overlay window — only renders the drawing canvas.
  * The toolbar lives in a separate content-protected window
@@ -15,6 +19,11 @@ export function LiveAnnotationOverlay() {
   const [ocrStatus, setOCRStatus] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
   const [pendingText, setPendingText] = useState<{ text: string; color: string } | null>(null)
   const { annotations, activeTool, activeColor, addAnnotation, moveAnnotation, undo, clear, setTool, setColor } = useAnnotations()
+
+  // Live tool options driven by the toolbar window via IPC commands
+  const [strokeWidth, setStrokeWidth] = useState<StrokeWidth>('medium')
+  const [fontSize, setFontSize] = useState<FontSize>('medium')
+  const [arrowStyle, setArrowStyle] = useState<ArrowStyle>('filled')
 
   const drawMode = mode === 'draw'
 
@@ -35,14 +44,20 @@ export function LiveAnnotationOverlay() {
   // Listen for annotation commands from the toolbar window (separate process)
   useEffect(() => {
     window.annotationOverlayAPI.onCommand((cmd: AnnotationCommand) => {
-      if (cmd.type === 'set-tool') setTool(cmd.tool as AnnotationTool)
-      else if (cmd.type === 'set-color') setColor(cmd.color)
-      else if (cmd.type === 'undo') undo()
-      else if (cmd.type === 'clear') {
-        clear()
-        setDeletedIds(new Set())
-      } else if (cmd.type === 'add-text') {
-        setPendingText({ text: cmd.text, color: cmd.color })
+      switch (cmd.type) {
+        case 'set-tool': setTool(cmd.tool as AnnotationTool); break
+        case 'set-color': setColor(cmd.color); break
+        case 'undo': undo(); break
+        case 'clear':
+          clear()
+          setDeletedIds(new Set())
+          break
+        case 'add-text':
+          setPendingText({ text: cmd.text, color: cmd.color })
+          break
+        case 'set-stroke-width': setStrokeWidth(cmd.value); break
+        case 'set-font-size': setFontSize(cmd.value); break
+        case 'set-arrow-style': setArrowStyle(cmd.value); break
       }
     })
     return () => window.annotationOverlayAPI.removeCommandListener()
@@ -60,6 +75,9 @@ export function LiveAnnotationOverlay() {
         annotations={visibleAnnotations}
         activeTool={activeTool}
         activeColor={activeColor}
+        strokeWidth={strokeWidth}
+        fontSize={fontSize}
+        arrowStyle={arrowStyle}
         onAddAnnotation={addAnnotation}
         onDeleteAnnotation={handleDelete}
         onMoveAnnotation={moveAnnotation}

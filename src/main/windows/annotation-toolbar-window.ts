@@ -5,10 +5,10 @@ let toolbarWindow: BrowserWindow | null = null
 
 /**
  * Toolbar window dimensions.
- * The toolbar is a compact strip: tools + colors + actions.
+ * Two rows: main controls + context sub-bar (tool-specific options).
  */
-const TOOLBAR_WIDTH = 780
-const TOOLBAR_HEIGHT = 52
+const TOOLBAR_WIDTH = 820
+const TOOLBAR_HEIGHT = 92
 
 export function createAnnotationToolbar(): BrowserWindow {
   if (toolbarWindow && !toolbarWindow.isDestroyed()) {

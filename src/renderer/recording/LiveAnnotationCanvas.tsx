@@ -2,10 +2,17 @@ import { useRef, useEffect, useState, useCallback } from 'react'
 import type { Annotation, AnnotationTool, Point } from '../../shared/types/annotation'
 import { renderAll, renderAnnotation } from '../annotation/render'
 
+type StrokeWidth = 'thin' | 'medium' | 'thick'
+type FontSize = 'small' | 'medium' | 'large'
+type ArrowStyle = 'filled' | 'outline'
+
 interface Props {
   annotations: Annotation[]
   activeTool: AnnotationTool | null
   activeColor: string
+  strokeWidth: StrokeWidth
+  fontSize: FontSize
+  arrowStyle: ArrowStyle
   onAddAnnotation: (annotation: Annotation) => void
   onDeleteAnnotation: (id: string) => void
   onMoveAnnotation: (id: string, dx: number, dy: number) => void
@@ -20,13 +27,25 @@ function nextId(): string {
   return `la-${++idCounter}-${Date.now()}`
 }
 
-const STROKE_WIDTH = 3
-const HIGHLIGHT_WIDTH = 3 // base, rendered at 4x
+const STROKE_WIDTH_PX: Record<StrokeWidth, number> = {
+  thin: 2,
+  medium: 3,
+  thick: 6
+}
+
+const FONT_SIZE_PX: Record<FontSize, number> = {
+  small: 18,
+  medium: 24,
+  large: 36
+}
 
 export function LiveAnnotationCanvas({
   annotations,
   activeTool,
   activeColor,
+  strokeWidth,
+  fontSize,
+  arrowStyle,
   onAddAnnotation,
   onDeleteAnnotation,
   onMoveAnnotation,
@@ -35,6 +54,8 @@ export function LiveAnnotationCanvas({
   pendingText,
   onTextPlaced
 }: Props) {
+  const sw = STROKE_WIDTH_PX[strokeWidth]
+  const fs = FONT_SIZE_PX[fontSize]
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [drawing, setDrawing] = useState(false)
   const [startPoint, setStartPoint] = useState<Point | null>(null)
@@ -62,25 +83,25 @@ export function LiveAnnotationCanvas({
 
     if ((activeTool === 'pen' || activeTool === 'highlight') && freehandPoints.length >= 2) {
       if (activeTool === 'pen') {
-        return { id: '__preview', type: 'pen', color: activeColor, strokeWidth: STROKE_WIDTH, points: freehandPoints }
+        return { id: '__preview', type: 'pen', color: activeColor, strokeWidth: sw, points: freehandPoints }
       }
-      return { id: '__preview', type: 'highlight', color: activeColor, strokeWidth: HIGHLIGHT_WIDTH, points: freehandPoints, opacity: 0.4 }
+      return { id: '__preview', type: 'highlight', color: activeColor, strokeWidth: sw, points: freehandPoints, opacity: 0.4 }
     }
 
     if (!startPoint || !currentPoint) return null
 
     if (activeTool === 'arrow') {
-      return { id: '__preview', type: 'arrow', color: activeColor, strokeWidth: STROKE_WIDTH, start: startPoint, end: currentPoint }
+      return { id: '__preview', type: 'arrow', color: activeColor, strokeWidth: sw, start: startPoint, end: currentPoint, headStyle: arrowStyle }
     }
     if (activeTool === 'rectangle') {
       return {
-        id: '__preview', type: 'rectangle', color: activeColor, strokeWidth: STROKE_WIDTH,
+        id: '__preview', type: 'rectangle', color: activeColor, strokeWidth: sw,
         x: Math.min(startPoint.x, currentPoint.x), y: Math.min(startPoint.y, currentPoint.y),
         width: Math.abs(currentPoint.x - startPoint.x), height: Math.abs(currentPoint.y - startPoint.y)
       }
     }
     if (activeTool === 'line') {
-      return { id: '__preview', type: 'line', color: activeColor, strokeWidth: STROKE_WIDTH, start: startPoint, end: currentPoint }
+      return { id: '__preview', type: 'line', color: activeColor, strokeWidth: sw, start: startPoint, end: currentPoint }
     }
     if (activeTool === 'cover') {
       return {
@@ -97,7 +118,7 @@ export function LiveAnnotationCanvas({
       }
     }
     return null
-  }, [drawing, activeTool, activeColor, startPoint, currentPoint, freehandPoints])
+  }, [drawing, activeTool, activeColor, startPoint, currentPoint, freehandPoints, sw, arrowStyle])
 
   // Redraw
   const redraw = useCallback(() => {
@@ -192,7 +213,7 @@ export function LiveAnnotationCanvas({
         strokeWidth: 0,
         position: pt,
         text: pendingText.text,
-        fontSize: 24
+        fontSize: fs
       })
       onTextPlaced?.()
       return
@@ -243,26 +264,26 @@ export function LiveAnnotationCanvas({
 
     if ((activeTool === 'pen' || activeTool === 'highlight') && freehandPoints.length >= 2) {
       if (activeTool === 'pen') {
-        onAddAnnotation({ id: nextId(), type: 'pen', color: activeColor, strokeWidth: STROKE_WIDTH, points: freehandPoints })
+        onAddAnnotation({ id: nextId(), type: 'pen', color: activeColor, strokeWidth: sw, points: freehandPoints })
       } else {
-        onAddAnnotation({ id: nextId(), type: 'highlight', color: activeColor, strokeWidth: HIGHLIGHT_WIDTH, points: freehandPoints, opacity: 0.4 })
+        onAddAnnotation({ id: nextId(), type: 'highlight', color: activeColor, strokeWidth: sw, points: freehandPoints, opacity: 0.4 })
       }
     } else if (startPoint && currentPoint) {
       const dx = Math.abs(currentPoint.x - startPoint.x)
       const dy = Math.abs(currentPoint.y - startPoint.y)
 
       if (activeTool === 'arrow' && (dx > 2 || dy > 2)) {
-        onAddAnnotation({ id: nextId(), type: 'arrow', color: activeColor, strokeWidth: STROKE_WIDTH, start: startPoint, end: currentPoint })
+        onAddAnnotation({ id: nextId(), type: 'arrow', color: activeColor, strokeWidth: sw, start: startPoint, end: currentPoint, headStyle: arrowStyle })
       }
       if (activeTool === 'rectangle' && dx > 2 && dy > 2) {
         onAddAnnotation({
-          id: nextId(), type: 'rectangle', color: activeColor, strokeWidth: STROKE_WIDTH,
+          id: nextId(), type: 'rectangle', color: activeColor, strokeWidth: sw,
           x: Math.min(startPoint.x, currentPoint.x), y: Math.min(startPoint.y, currentPoint.y),
           width: dx, height: dy
         })
       }
       if (activeTool === 'line' && (dx > 2 || dy > 2)) {
-        onAddAnnotation({ id: nextId(), type: 'line', color: activeColor, strokeWidth: STROKE_WIDTH, start: startPoint, end: currentPoint })
+        onAddAnnotation({ id: nextId(), type: 'line', color: activeColor, strokeWidth: sw, start: startPoint, end: currentPoint })
       }
       if (activeTool === 'cover' && dx > 2 && dy > 2) {
         onAddAnnotation({

@@ -69,6 +69,8 @@ export const tr: Record<string, string> = {
   'settings.closeToTrayDesc': 'Pencere kapatıldığında arka planda çalışmaya devam eder',
   'settings.quickRecord': 'Hızlı kayıt modu',
   'settings.quickRecordDesc': 'Kısayolla UI göstermeden doğrudan kayıt başlat',
+  'settings.magnifier': 'Büyüteç',
+  'settings.magnifierDesc': 'Seçim sırasında piksel büyüteci. Kapalıyken Shift basılı tutarak gösterebilirsin',
   'settings.defaultSaveDir': 'Varsayılan kayıt klasörü',
   'settings.defaultSaveDirDesc': 'Boş bırakılırsa her seferinde sorulur',
   'settings.notSpecified': '(Belirtilmemiş)',

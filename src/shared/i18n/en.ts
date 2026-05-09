@@ -69,6 +69,8 @@ export const en: Record<string, string> = {
   'settings.closeToTrayDesc': 'Keeps running in background when window is closed',
   'settings.quickRecord': 'Quick record mode',
   'settings.quickRecordDesc': 'Start recording directly without UI via shortcut',
+  'settings.magnifier': 'Magnifier',
+  'settings.magnifierDesc': 'Pixel magnifier during selection. When off, hold Shift to show on demand',
   'settings.defaultSaveDir': 'Default save folder',
   'settings.defaultSaveDirDesc': 'If empty, you will be prompted each time',
   'settings.notSpecified': '(Not specified)',

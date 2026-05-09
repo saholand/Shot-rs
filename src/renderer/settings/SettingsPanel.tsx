@@ -250,6 +250,21 @@ export function SettingsPanel({ onBack }: Props) {
           </label>
         </div>
 
+        <div className="settings-item">
+          <div className="settings-item-info">
+            <span className="settings-item-label">{t('settings.magnifier')}</span>
+            <span className="settings-item-desc">{t('settings.magnifierDesc')}</span>
+          </div>
+          <label className="settings-toggle">
+            <input
+              type="checkbox"
+              checked={settings.magnifierEnabled}
+              onChange={(e) => update('magnifierEnabled', e.target.checked)}
+            />
+            <span className="settings-toggle-slider" />
+          </label>
+        </div>
+
         {/* ── File Settings ── */}
         <SectionTitle>{t('settings.fileSettings')}</SectionTitle>
 

@@ -1,6 +1,7 @@
 import { BrowserWindow, screen, desktopCapturer } from 'electron'
 import { join } from 'path'
 import { IPC_CHANNELS } from '../../shared/constants'
+import { getSetting } from '../services/settings-store'
 
 let overlayWindow: BrowserWindow | null = null
 let overlayDisplay: Electron.Display | null = null
@@ -99,7 +100,8 @@ export async function createOverlayWindow(): Promise<BrowserWindow> {
       y,
       width,
       height,
-      scaleFactor: display.scaleFactor
+      scaleFactor: display.scaleFactor,
+      magnifierEnabled: !!getSetting('magnifierEnabled')
     })
     if (backgroundDataUrl) {
       overlayWindow.webContents.send(

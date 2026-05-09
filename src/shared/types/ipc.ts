@@ -24,6 +24,8 @@ export interface ScreenBounds {
   width: number
   height: number
   scaleFactor: number
+  /** Whether the user has the selection-phase magnifier enabled in settings. */
+  magnifierEnabled?: boolean
 }
 
 /**
@@ -136,6 +138,9 @@ export type AnnotationCommand =
   | { type: 'undo' }
   | { type: 'clear' }
   | { type: 'add-text'; text: string; color: string }
+  | { type: 'set-stroke-width'; value: 'thin' | 'medium' | 'thick' }
+  | { type: 'set-font-size'; value: 'small' | 'medium' | 'large' }
+  | { type: 'set-arrow-style'; value: 'filled' | 'outline' }
 
 export interface AnnotationOverlayAPI {
   onModeChange: (callback: (mode: AnnotationMode) => void) => void

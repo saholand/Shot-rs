@@ -53,6 +53,9 @@ export function OverlayApp() {
   const [bgScaleFactor, setBgScaleFactor] = useState(1)
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null)
   const [cursorInWindow, setCursorInWindow] = useState(false)
+  // Magnifier visibility — driven by user setting + a Shift-held override
+  const [magnifierSetting, setMagnifierSetting] = useState(false)
+  const [shiftHeld, setShiftHeld] = useState(false)
 
   // Resize handle drag state
   const [activeHandle, setActiveHandle] = useState<HandleId | null>(null)
@@ -99,6 +102,32 @@ export function OverlayApp() {
     })
     return () => window.overlayAPI.removeBackgroundListener()
   }, [])
+
+  // Pull magnifier setting (and updated scaleFactor) from SCREEN_BOUNDS
+  useEffect(() => {
+    window.overlayAPI.onScreenBounds((bounds) => {
+      if (typeof bounds.magnifierEnabled === 'boolean') {
+        setMagnifierSetting(bounds.magnifierEnabled)
+      }
+    })
+  }, [])
+
+  // Track Shift key — held = override the setting
+  useEffect(() => {
+    if (phase !== 'selecting') return
+    const onDown = (e: KeyboardEvent) => { if (e.key === 'Shift') setShiftHeld(true) }
+    const onUp = (e: KeyboardEvent) => { if (e.key === 'Shift') setShiftHeld(false) }
+    window.addEventListener('keydown', onDown)
+    window.addEventListener('keyup', onUp)
+    // If the window loses focus while Shift was held, release it
+    const onBlur = () => setShiftHeld(false)
+    window.addEventListener('blur', onBlur)
+    return () => {
+      window.removeEventListener('keydown', onDown)
+      window.removeEventListener('keyup', onUp)
+      window.removeEventListener('blur', onBlur)
+    }
+  }, [phase])
 
   // Track cursor position in window-local DIPs for the magnifier
   useEffect(() => {
@@ -429,7 +458,7 @@ export function OverlayApp() {
       onMouseUp={handlers.onMouseUp}
     >
       <SelectionCanvas region={region} isSelecting={isSelecting} />
-      {cursorPos && (
+      {cursorPos && (magnifierSetting || shiftHeld) && (
         <SelectionMagnifier
           bgImage={bgImage}
           scaleFactor={bgScaleFactor}

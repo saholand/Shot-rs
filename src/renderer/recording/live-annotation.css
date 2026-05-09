@@ -250,3 +250,232 @@ html, body, #annotation-root, #toolbar-root {
 .la-text-input::placeholder {
   color: rgba(255, 255, 255, 0.4);
 }
+
+/* ── Two-row standalone toolbar ──────────────────── */
+
+.la-toolbar-tall {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 4px 8px 6px;
+  position: relative;
+}
+
+.la-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  justify-content: center;
+}
+
+/* ── Sub-bar (tool-specific options) ─────────────── */
+
+.la-subbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 28px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 4px;
+  -webkit-app-region: no-drag;
+}
+
+.la-subbar-empty .la-sub-empty-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 0.04em;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.la-sub-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.la-sub-label {
+  font-size: 11px;
+  color: #888;
+  margin-right: 4px;
+  letter-spacing: 0.03em;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.la-sub-sep {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 4px;
+}
+
+.la-stroke-btn {
+  width: 28px;
+  height: 24px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.1s;
+  -webkit-app-region: no-drag;
+}
+.la-stroke-btn:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+.la-stroke-active {
+  background: rgba(79, 163, 247, 0.22);
+  border-color: rgba(79, 163, 247, 0.6);
+}
+.la-stroke-dot {
+  background: #cfd8e3;
+  border-radius: 50%;
+  display: block;
+}
+.la-stroke-active .la-stroke-dot {
+  background: #4fa3f7;
+}
+
+.la-pill {
+  padding: 3px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: transparent;
+  color: #cfd8e3;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  cursor: pointer;
+  transition: all 0.1s;
+  min-width: 28px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-app-region: no-drag;
+}
+.la-pill:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.la-pill-active {
+  background: rgba(79, 163, 247, 0.22);
+  color: #4fa3f7;
+  border-color: rgba(79, 163, 247, 0.6);
+}
+
+/* ── Color trigger + popover (live toolbar) ─────── */
+
+.la-color-trigger {
+  width: 22px;
+  height: 22px;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  position: relative;
+  color: rgba(255, 255, 255, 0.9);
+  background-clip: padding-box;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  transition: transform 0.1s;
+  -webkit-app-region: no-drag;
+}
+.la-color-trigger:hover {
+  transform: scale(1.08);
+}
+.la-color-trigger::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 0;
+}
+.la-color-trigger > svg {
+  position: relative;
+  z-index: 1;
+}
+
+.la-color-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 12px;
+  width: 200px;
+  background: rgba(20, 20, 36, 0.97);
+  border: 1px solid rgba(79, 163, 247, 0.3);
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  z-index: 130;
+  -webkit-app-region: no-drag;
+  animation: la-slide-in 0.12s ease;
+}
+
+.la-color-popover-header {
+  font-size: 11px;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.la-color-popover-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.la-color-native {
+  width: 32px;
+  height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.la-color-native::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+.la-color-native::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.la-color-hex-input {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  padding: 6px 8px;
+  color: #fff;
+  font-family: 'Consolas', 'Menlo', monospace;
+  font-size: 12px;
+  outline: none;
+  text-transform: uppercase;
+}
+.la-color-hex-input:focus {
+  border-color: #4fa3f7;
+}
+
+.la-color-popover-sub {
+  font-size: 10px;
+  color: #888;
+  margin: 6px 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.la-color-popover-recent {
+  display: flex;
+  gap: 6px;
+}

@@ -10,6 +10,9 @@ export interface AppSettings {
   annotationHotkey: string
   ocrHotkey: string
   language: 'tr' | 'en'
+  /** Magnifier loupe shown during selection. Off by default; user can
+   *  override on-the-fly by holding Shift while selecting. */
+  magnifierEnabled: boolean
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -23,7 +26,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   recordingHotkey: 'CommandOrControl+Alt+R',
   annotationHotkey: 'CommandOrControl+Shift+D',
   ocrHotkey: 'CommandOrControl+Shift+O',
-  language: 'tr'
+  language: 'tr',
+  magnifierEnabled: false
 }
 
 /**

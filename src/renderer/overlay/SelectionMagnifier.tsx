@@ -14,8 +14,11 @@ interface SelectionMagnifierProps {
   sizeText?: string
 }
 
-const LOUPE_SIZE = 120
-const ZOOM_RADIUS = 8 // pixels (in source) sampled around cursor
+const LOUPE_SIZE = 104
+// Number of source pixels (in either direction) sampled around the cursor.
+// 14 → 29×29 source window → ~3.6× zoom, leaves enough context to find your
+// way around the cursor. Higher value = less aggressive zoom.
+const ZOOM_RADIUS = 14
 const VIEWPORT_MARGIN = 16
 
 /**
@@ -57,31 +60,50 @@ export function SelectionMagnifier({
       /* image may not be ready yet */
     }
 
-    // Center crosshair (highlights the exact pixel under cursor)
+    // Subtle crosshair lines so cursor is easy to locate
     const pixelSize = LOUPE_SIZE / sw
-    const cx = Math.floor((px - sx) * pixelSize)
-    const cy = Math.floor((py - sy) * pixelSize)
+    const cx = (px - sx) * pixelSize
+    const cy = (py - sy) * pixelSize
 
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)'
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)'
     ctx.lineWidth = 1
-    ctx.strokeRect(cx + 0.5, cy + 0.5, Math.ceil(pixelSize), Math.ceil(pixelSize))
-    ctx.strokeStyle = 'rgba(0,0,0,0.6)'
-    ctx.strokeRect(cx - 0.5, cy - 0.5, Math.ceil(pixelSize) + 2, Math.ceil(pixelSize) + 2)
+    ctx.beginPath()
+    ctx.moveTo(0, cy + 0.5)
+    ctx.lineTo(LOUPE_SIZE, cy + 0.5)
+    ctx.moveTo(cx + 0.5, 0)
+    ctx.lineTo(cx + 0.5, LOUPE_SIZE)
+    ctx.stroke()
+
+    // Highlight the exact pixel under the cursor
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)'
+    ctx.lineWidth = 1
+    ctx.strokeRect(
+      Math.round(cx - pixelSize / 2) + 0.5,
+      Math.round(cy - pixelSize / 2) + 0.5,
+      Math.ceil(pixelSize),
+      Math.ceil(pixelSize)
+    )
   }, [bgImage, scaleFactor, cursorX, cursorY, visible])
 
   if (!visible || !bgImage) return null
 
   // Place loupe in the quadrant opposite the cursor's screen quadrant so it
   // doesn't cover the selection region.
-  const offset = 20
+  const offset = 18
   const screenW = window.innerWidth
   const screenH = window.innerHeight
+  const totalH = LOUPE_SIZE + 28 // info strip
   let left = cursorX + offset
   let top = cursorY + offset
   if (left + LOUPE_SIZE + VIEWPORT_MARGIN > screenW) left = cursorX - LOUPE_SIZE - offset
-  if (top + LOUPE_SIZE + 28 + VIEWPORT_MARGIN > screenH) top = cursorY - LOUPE_SIZE - 28 - offset
+  if (top + totalH + VIEWPORT_MARGIN > screenH) top = cursorY - totalH - offset
   if (left < VIEWPORT_MARGIN) left = VIEWPORT_MARGIN
   if (top < VIEWPORT_MARGIN) top = VIEWPORT_MARGIN
+
+  // Cursor coordinates shown to the user — physical pixels (what the saved
+  // file would use) are what designers actually want.
+  const coordX = Math.round(cursorX * scaleFactor)
+  const coordY = Math.round(cursorY * scaleFactor)
 
   return (
     <div className="selection-loupe" style={{ left, top }}>
@@ -91,9 +113,10 @@ export function SelectionMagnifier({
         height={LOUPE_SIZE}
         className="selection-loupe-canvas"
       />
-      {sizeText && (
-        <div className="selection-loupe-info">{sizeText}</div>
-      )}
+      <div className="selection-loupe-info">
+        <span className="selection-loupe-coord">{coordX}, {coordY}</span>
+        {sizeText && <span className="selection-loupe-size">{sizeText}</span>}
+      </div>
     </div>
   )
 }
