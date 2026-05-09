@@ -81,10 +81,8 @@ export const IPC_CHANNELS = {
   EFFECTS_CLICK: 'effects:click',
   EFFECTS_CURSOR_POS: 'effects:cursor-pos',
 
-  // Click-to-zoom (during recording)
-  RECORDING_ZOOM_TRIGGER: 'recording:zoom-trigger',
-  RECORDING_ZOOM_WHEEL: 'recording:zoom-wheel',
-  RECORDING_CLICK_EVENT: 'recording:click-event',
+  // Click-to-zoom (during recording) — toolbar tool driven, single channel
+  RECORDING_ZOOM_GO: 'recording:zoom-go',
 
   // Trim editor
   RECORDING_TRIM: 'recording:trim',

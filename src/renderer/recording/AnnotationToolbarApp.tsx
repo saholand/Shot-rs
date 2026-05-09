@@ -4,7 +4,7 @@ import type { AnnotationCommand } from '../../shared/types/ipc'
 import { t } from '../../shared/i18n'
 import './live-annotation.css'
 
-type LiveTool = 'pen' | 'arrow' | 'rectangle' | 'line' | 'highlight' | 'cover' | 'ocr' | 'text'
+type LiveTool = 'pen' | 'arrow' | 'rectangle' | 'line' | 'highlight' | 'cover' | 'ocr' | 'text' | 'zoom'
 type StrokeWidth = 'thin' | 'medium' | 'thick'
 type FontSize = 'small' | 'medium' | 'large'
 type ArrowStyle = 'filled' | 'outline'
@@ -42,7 +42,13 @@ const ERASER_SIZES: { id: EraserSize; label: string; dot: number }[] = [
 
 /** Tools that have something to show in the sub-bar. Note: in live mode
  *  the eraser is named 'move' for legacy reasons. */
-const TOOLS_WITH_OPTIONS = new Set<string>(['pen', 'highlight', 'arrow', 'rectangle', 'line', 'text', 'move', 'cover'])
+const TOOLS_WITH_OPTIONS = new Set<string>(['pen', 'highlight', 'arrow', 'rectangle', 'line', 'text', 'move', 'cover', 'zoom'])
+
+const ZOOM_PRESETS: { value: number; label: string }[] = [
+  { value: 1.5, label: '1.5×' },
+  { value: 2,   label: '2×'   },
+  { value: 3,   label: '3×'   }
+]
 
 const COVER_STYLES: { id: CoverStyle; label: string }[] = [
   { id: 'noise', label: t('liveToolbar.coverNoise') },
@@ -83,6 +89,7 @@ export function AnnotationToolbarApp() {
     window.electronAPI.recording.toggleWebcam(next)
   }, [webcamOn])
   const [textInput, setTextInput] = useState('')
+  const [zoomLevel, setZoomLevel] = useState<number>(2)
 
   const textInputRef = useRef<HTMLInputElement>(null)
   const nativeColorRef = useRef<HTMLInputElement>(null)
@@ -95,6 +102,7 @@ export function AnnotationToolbarApp() {
     { id: 'line', label: t('toolbar.line') },
     { id: 'text', label: t('toolbar.text') },
     { id: 'cover', label: t('liveToolbar.blur') },
+    { id: 'zoom', label: t('liveToolbar.zoom') },
     { id: 'ocr', label: t('toolbar.ocr') }
   ]
 
@@ -142,6 +150,13 @@ export function AnnotationToolbarApp() {
             <circle cx="18" cy="18" r="1.4" opacity="0.4" />
           </svg>
         )
+      case 'zoom':
+        return wrap(<>
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="M21 21l-4.5-4.5" />
+          <path d="M11 8v6" />
+          <path d="M8 11h6" />
+        </>)
       case 'ocr':
         return wrap(<>
           <path d="M4 8V5h3" />
@@ -162,12 +177,17 @@ export function AnnotationToolbarApp() {
   }, [])
 
   const handleToolChange = useCallback((tool: AnnotationTool | null) => {
+    // Leaving zoom tool → smooth reset back to 1×. The user expects
+    // the framing to recover when they switch tools (Cap-style).
+    if (activeTool === 'zoom' && tool !== 'zoom') {
+      sendCommand({ type: 'zoom-reset' })
+    }
     setActiveTool(tool)
     // Always notify the canvas — null = "no drawing tool active"
     // (Select / pointer mode). Without this, switching to Select left
     // the canvas stuck on whatever tool was last set.
     sendCommand({ type: 'set-tool', tool })
-  }, [sendCommand])
+  }, [activeTool, sendCommand])
 
   const handleColorChange = useCallback((color: string) => {
     setActiveColor(color)
@@ -201,6 +221,15 @@ export function AnnotationToolbarApp() {
   const handleCoverStyleChange = useCallback((value: CoverStyle) => {
     setCoverStyle(value)
     sendCommand({ type: 'set-cover-style', value })
+  }, [sendCommand])
+
+  const handleZoomLevelChange = useCallback((value: number) => {
+    setZoomLevel(value)
+    sendCommand({ type: 'set-zoom-level', value })
+  }, [sendCommand])
+
+  const handleZoomReset = useCallback(() => {
+    sendCommand({ type: 'zoom-reset' })
   }, [sendCommand])
 
   // Highlighter cursor — toggles a fluorescent overlay disc following the
@@ -291,7 +320,12 @@ export function AnnotationToolbarApp() {
 
   const handleUndo = useCallback(() => sendCommand({ type: 'undo' }), [sendCommand])
   const handleClear = useCallback(() => sendCommand({ type: 'clear' }), [sendCommand])
-  const handleCloseDraw = useCallback(() => window.annotationOverlayAPI.toggle(), [])
+  const handleCloseDraw = useCallback(() => {
+    // Leaving draw mode while zoomed in would freeze the framing on
+    // the captured video — always reset before closing the overlay.
+    sendCommand({ type: 'zoom-reset' })
+    window.annotationOverlayAPI.toggle()
+  }, [sendCommand])
   const handleStopRecording = useCallback(() => window.annotationOverlayAPI.stopRecording(), [])
 
   const handleTextSubmit = useCallback(() => {
@@ -337,6 +371,7 @@ export function AnnotationToolbarApp() {
     sendCommand({ type: 'set-font-size', value: 'medium' })
     sendCommand({ type: 'set-arrow-style', value: 'filled' })
     sendCommand({ type: 'set-cover-style', value: 'noise' })
+    sendCommand({ type: 'set-zoom-level', value: 2 })
   }, [sendCommand])
 
   // Sub-bar content per tool
@@ -418,6 +453,43 @@ export function AnnotationToolbarApp() {
         </button>
       ))}
     </div>
+  )
+
+  // Zoom tool sub-bar — preset pills (1.5/2/3) + a wider slider for fine
+  // control + Reset. Clicking on the canvas while this tool is active
+  // pans-and-zooms to the click point at the chosen level.
+  const renderZoomLevels = () => (
+    <>
+      <div className="la-sub-group">
+        <span className="la-sub-label">{t('liveToolbar.zoomLevel')}</span>
+        {ZOOM_PRESETS.map(p => (
+          <button
+            key={p.value}
+            className={`la-pill ${Math.abs(zoomLevel - p.value) < 0.01 ? 'la-pill-active' : ''}`}
+            onClick={() => handleZoomLevelChange(p.value)}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      <div className="la-sub-sep" />
+      <div className="la-sub-group la-sub-group-grow">
+        <input
+          type="range"
+          min="1.2"
+          max="5"
+          step="0.1"
+          value={zoomLevel}
+          onChange={e => handleZoomLevelChange(parseFloat(e.target.value))}
+          className="la-zoom-slider"
+        />
+        <span className="la-zoom-readout">{zoomLevel.toFixed(1)}×</span>
+      </div>
+      <div className="la-sub-sep" />
+      <button className="la-pill la-pill-warn" onClick={handleZoomReset} title={t('liveToolbar.zoomReset')}>
+        {t('liveToolbar.zoomReset')}
+      </button>
+    </>
   )
 
   // Cover ("blur") style picker — 4 variants. Tooltip + thumbnail tile
@@ -596,6 +668,8 @@ export function AnnotationToolbarApp() {
         return renderEraser()
       case 'cover':
         return renderCoverStyles()
+      case 'zoom':
+        return renderZoomLevels()
       default:
         // No tool with options selected — fall back to whichever effect
         // toggle is on, in priority order: ripple > spotlight > highlighter.

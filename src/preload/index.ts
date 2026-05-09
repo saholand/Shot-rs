@@ -4,7 +4,7 @@ import type {
   ElectronAPI, OverlayAPI, AnnotationOverlayAPI, AnnotationMode, ScreenBounds, SelectionRegion,
   HighlighterCursorState, HighlighterPosPayload,
   EffectsState, EffectsClickPayload,
-  ZoomTriggerPayload, ZoomWheelPayload
+  ZoomGoPayload
 } from '../shared/types/ipc'
 
 const RESULT_CHANNEL = IPC_CHANNELS.SCREENSHOT_RESULT
@@ -82,27 +82,16 @@ const api: ElectronAPI = {
     setEffectsState: (state: EffectsState) => {
       ipcRenderer.send(IPC_CHANNELS.EFFECTS_TOGGLE, state)
     },
-    // Click-to-zoom triggers from main (mouse hook)
-    onZoomTrigger: (callback: (payload: ZoomTriggerPayload) => void) => {
-      ipcRenderer.on(IPC_CHANNELS.RECORDING_ZOOM_TRIGGER, (_e, payload) => callback(payload))
+    // Click-to-zoom (toolbar zoom tool → RecordingPanel)
+    zoomGo: (payload: ZoomGoPayload) => ipcRenderer.send(IPC_CHANNELS.RECORDING_ZOOM_GO, payload),
+    onZoomGo: (callback: (payload: ZoomGoPayload) => void) => {
+      ipcRenderer.on(IPC_CHANNELS.RECORDING_ZOOM_GO, (_e, payload) => callback(payload))
     },
-    removeZoomTriggerListener: () => {
-      ipcRenderer.removeAllListeners(IPC_CHANNELS.RECORDING_ZOOM_TRIGGER)
-    },
-    onZoomWheel: (callback: (payload: ZoomWheelPayload) => void) => {
-      ipcRenderer.on(IPC_CHANNELS.RECORDING_ZOOM_WHEEL, (_e, payload) => callback(payload))
-    },
-    removeZoomWheelListener: () => {
-      ipcRenderer.removeAllListeners(IPC_CHANNELS.RECORDING_ZOOM_WHEEL)
+    removeZoomGoListener: () => {
+      ipcRenderer.removeAllListeners(IPC_CHANNELS.RECORDING_ZOOM_GO)
     },
     trim: (payload) => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_TRIM, payload),
-    toggleWebcam: (enabled: boolean) => ipcRenderer.send(IPC_CHANNELS.WEBCAM_TOGGLE, enabled),
-    onClickEvent: (callback: (payload: EffectsClickPayload) => void) => {
-      ipcRenderer.on(IPC_CHANNELS.RECORDING_CLICK_EVENT, (_e, payload) => callback(payload))
-    },
-    removeClickEventListener: () => {
-      ipcRenderer.removeAllListeners(IPC_CHANNELS.RECORDING_CLICK_EVENT)
-    }
+    toggleWebcam: (enabled: boolean) => ipcRenderer.send(IPC_CHANNELS.WEBCAM_TOGGLE, enabled)
   },
   app: {
     onForceMode: (callback) => {

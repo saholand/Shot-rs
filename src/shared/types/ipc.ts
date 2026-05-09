@@ -83,17 +83,14 @@ export interface EffectsClickPayload {
   button: number
 }
 
-/** Trigger payload for the recording click-to-zoom feature. */
-export interface ZoomTriggerPayload {
-  x: number          // virtual-desktop physical pixels
+/** Toolbar-driven click-to-zoom payload. Coordinates are in CSS screen
+ * pixels (e.screenX / e.screenY); the recording pipeline scales them up
+ * by the display's scaleFactor to match the captured video's pixel grid. */
+export interface ZoomGoPayload {
+  x: number
   y: number
-  scaleFactor: number
-  displayId: string
-}
-
-export interface ZoomWheelPayload {
-  /** +1 = wheel up (zoom in), -1 = wheel down (zoom out). */
-  delta: number
+  /** Target zoom level. 1.0 = reset (smooth pan back to baseRect center). */
+  level: number
 }
 
 export interface ExportResult {
@@ -157,18 +154,14 @@ export interface ElectronAPI {
     updateHighlighterCursor: (state: HighlighterCursorState) => void
     // Effects overlay (click ripple + spotlight)
     setEffectsState: (state: EffectsState) => void
-    // Click-to-zoom
-    onZoomTrigger: (callback: (payload: ZoomTriggerPayload) => void) => void
-    removeZoomTriggerListener: () => void
-    onZoomWheel: (callback: (payload: ZoomWheelPayload) => void) => void
-    removeZoomWheelListener: () => void
+    // Click-to-zoom (toolbar tool → recording pipeline)
+    zoomGo: (payload: ZoomGoPayload) => void
+    onZoomGo: (callback: (payload: ZoomGoPayload) => void) => void
+    removeZoomGoListener: () => void
     // Trim editor
     trim: (payload: { inputPath: string; startSec: number; endSec: number }) => Promise<RecordingResult>
     // Webcam window mid-session toggle
     toggleWebcam: (enabled: boolean) => void
-    // Click events forwarded from main (for auto-zoom cluster detection)
-    onClickEvent: (callback: (payload: EffectsClickPayload) => void) => void
-    removeClickEventListener: () => void
   }
 
   app: {
@@ -216,6 +209,8 @@ export type AnnotationCommand =
   | { type: 'set-arrow-style'; value: 'filled' | 'outline' }
   | { type: 'set-eraser-size'; value: 'small' | 'medium' | 'large' }
   | { type: 'set-cover-style'; value: 'noise' | 'pixelate' | 'solid' | 'frosted' }
+  | { type: 'set-zoom-level'; value: number }
+  | { type: 'zoom-reset' }
 
 export interface AnnotationOverlayAPI {
   onModeChange: (callback: (mode: AnnotationMode) => void) => void

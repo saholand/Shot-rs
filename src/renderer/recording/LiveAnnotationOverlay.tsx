@@ -27,6 +27,7 @@ export function LiveAnnotationOverlay() {
   const [arrowStyle, setArrowStyle] = useState<ArrowStyle>('filled')
   const [eraserSize, setEraserSize] = useState<EraserSize>('medium')
   const [coverStyle, setCoverStyle] = useState<CoverStyle>('noise')
+  const [zoomLevel, setZoomLevel] = useState<number>(2)
 
   const drawMode = mode === 'draw'
 
@@ -59,6 +60,13 @@ export function LiveAnnotationOverlay() {
         case 'set-arrow-style': setArrowStyle(cmd.value); break
         case 'set-eraser-size': setEraserSize(cmd.value); break
         case 'set-cover-style': setCoverStyle(cmd.value); break
+        case 'set-zoom-level': setZoomLevel(cmd.value); break
+        case 'zoom-reset':
+          // Smooth reset: send a zoomGo with level=1.0 to the pipeline.
+          // We don't change zoomLevel state — that's the *next* zoom-in
+          // level the user picked, separate from the current applied zoom.
+          window.electronAPI.recording.zoomGo({ x: 0, y: 0, level: 1.0 })
+          break
       }
     })
     return () => window.annotationOverlayAPI.removeCommandListener()
@@ -75,6 +83,7 @@ export function LiveAnnotationOverlay() {
         arrowStyle={arrowStyle}
         eraserSize={eraserSize}
         coverStyle={coverStyle}
+        zoomLevel={zoomLevel}
         onAddAnnotation={addAnnotation}
         onEraseAt={eraseAt}
         onMoveAnnotation={moveAnnotation}

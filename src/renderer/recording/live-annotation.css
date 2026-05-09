@@ -353,6 +353,46 @@ html, body, #annotation-root, #toolbar-root {
   cursor: not-allowed;
 }
 
+/* ── Zoom tool sub-bar ──────────────────── */
+.la-zoom-slider {
+  flex: 1 1 auto;
+  min-width: 100px;
+  max-width: 220px;
+  height: 4px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 2px;
+  outline: none;
+}
+.la-zoom-slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #4fa3f7;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+}
+.la-zoom-readout {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+  font-variant-numeric: tabular-nums;
+  min-width: 32px;
+  text-align: right;
+}
+
+/* Warn-styled pill — used by Reset to read as "back out" rather than
+ * destructive. Subtler than la-btn-danger. */
+.la-pill-warn {
+  border-color: rgba(255, 180, 60, 0.55);
+  color: #ffc060;
+}
+.la-pill-warn:hover {
+  background: rgba(255, 180, 60, 0.12);
+}
+
 .la-sub-label {
   font-size: 11px;
   color: #888;

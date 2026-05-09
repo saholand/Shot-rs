@@ -3,7 +3,7 @@ export interface Point {
   y: number
 }
 
-export type AnnotationTool = 'move' | 'drag' | 'eraser' | 'arrow' | 'rectangle' | 'text' | 'blur' | 'pen' | 'line' | 'highlight' | 'cover' | 'eyedropper' | 'ocr'
+export type AnnotationTool = 'move' | 'drag' | 'eraser' | 'arrow' | 'rectangle' | 'text' | 'blur' | 'pen' | 'line' | 'highlight' | 'cover' | 'eyedropper' | 'ocr' | 'zoom'
 
 interface BaseAnnotation {
   id: string

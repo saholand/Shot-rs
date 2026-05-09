@@ -9,7 +9,7 @@ import { startSession, stopSession, setSaving, isRecording } from '../recording/
 import { getMainWindow, setRecordingAlwaysOnTop } from '../windows/main-window'
 import { createAnnotationOverlay, closeAnnotationOverlay } from '../windows/annotation-overlay-window'
 import { addHistoryEntry } from '../services/history-store'
-import { getSettings, getSetting } from '../services/settings-store'
+import { getSettings } from '../services/settings-store'
 import { resolveFileName } from '../../shared/types/settings'
 import {
   initTempFile, writeChunk, finalizeTempFile,
@@ -61,9 +61,9 @@ export function registerRecordingIPC(): void {
     }
 
     // Spin up the mouse hook to push cursor positions to the highlighter
-    // overlay window. Best-effort — failures (missing native binary, AV)
-    // just disable the highlighter cursor's live tracking.
-    const doubleClickWindowMs = getSetting('zoomDoubleClickWindowMs') ?? 350
+    // overlay window + click events to the click-ripple effects window.
+    // Best-effort — failures (missing native binary, AV) just disable
+    // those visual effects without breaking the recording.
     startMouseHook({
       onMouseMove: (payload) => {
         if (getHighlighterCursorWindow()) {
@@ -77,26 +77,8 @@ export function registerRecordingIPC(): void {
         if (getEffectsWindow()) {
           pushEffectsClick(payload)
         }
-        // Also forward to main window so RecordingPanel can run
-        // auto-zoom click-cluster detection.
-        const mw = getMainWindow()
-        if (mw && !mw.isDestroyed()) {
-          mw.webContents.send(IPC_CHANNELS.RECORDING_CLICK_EVENT, payload)
-        }
-      },
-      onZoomTrigger: (payload) => {
-        const win = getMainWindow()
-        if (win && !win.isDestroyed()) {
-          win.webContents.send(IPC_CHANNELS.RECORDING_ZOOM_TRIGGER, payload)
-        }
-      },
-      onWheel: (payload) => {
-        const win = getMainWindow()
-        if (win && !win.isDestroyed()) {
-          win.webContents.send(IPC_CHANNELS.RECORDING_ZOOM_WHEEL, payload)
-        }
       }
-    }, { doubleClickWindowMs }).catch(err => console.warn('startMouseHook error:', err))
+    }).catch(err => console.warn('startMouseHook error:', err))
 
     return { success: true }
   })
@@ -110,6 +92,15 @@ export function registerRecordingIPC(): void {
     closeHighlighterCursorWindow()
     closeEffectsWindow()
     closeWebcamWindow()
+  })
+
+  // Toolbar zoom tool → forward to main window (RecordingPanel listens
+  // and stages the canvas zoom transform).
+  ipcMain.on(IPC_CHANNELS.RECORDING_ZOOM_GO, (_event, payload: { x: number; y: number; level: number }) => {
+    const mw = getMainWindow()
+    if (mw && !mw.isDestroyed()) {
+      mw.webContents.send(IPC_CHANNELS.RECORDING_ZOOM_GO, payload)
+    }
   })
 
   // Mid-recording webcam toggle (live toolbar / pick-phase quick toggle)

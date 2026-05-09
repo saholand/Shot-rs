@@ -80,14 +80,14 @@ export interface AppSettings {
   webcamPosition: 'tl' | 'tr' | 'bl' | 'br'
   webcamSize: 'small' | 'medium' | 'large'
 
-  // ── Click-to-zoom ──
+  // ── Click-to-zoom (toolbar tool) ──
+  /** Always-on flag — when true, the canvas pipeline is enabled so the
+   *  zoom tool's clicks have a transform target. Off by default to keep
+   *  the fast path (direct desktopStream → MediaRecorder) for users who
+   *  don't use zoom. */
   zoomEnabled: boolean
+  /** Default level the toolbar starts at when the user enters zoom mode. */
   zoomDefaultLevel: number
-  zoomDoubleClickWindowMs: number
-
-  // ── Auto-zoom on activity ──
-  autoZoomEnabled: boolean
-  autoZoomHoldSec: number
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -124,10 +124,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   webcamPosition: 'br',
   webcamSize: 'medium',
   zoomEnabled: false,
-  zoomDefaultLevel: 2.5,
-  zoomDoubleClickWindowMs: 350,
-  autoZoomEnabled: false,
-  autoZoomHoldSec: 3
+  zoomDefaultLevel: 2
 }
 
 /**

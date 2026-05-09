@@ -499,40 +499,6 @@ export function SettingsPanel({ onBack }: Props) {
           </div>
         )}
 
-        <div className="settings-item">
-          <div className="settings-item-info">
-            <span className="settings-item-label">{t('settings.autoZoom')}</span>
-            <span className="settings-item-desc">{t('settings.autoZoomDesc')}</span>
-          </div>
-          <label className="settings-toggle">
-            <input
-              type="checkbox"
-              checked={settings.autoZoomEnabled}
-              onChange={(e) => update('autoZoomEnabled', e.target.checked)}
-            />
-            <span className="settings-toggle-slider" />
-          </label>
-        </div>
-
-        {settings.autoZoomEnabled && (
-          <div className="settings-item">
-            <div className="settings-item-info">
-              <span className="settings-item-label">{t('settings.autoZoomHold')}</span>
-              <span className="settings-item-desc">{t('settings.autoZoomHoldDesc')}</span>
-            </div>
-            <select
-              className="settings-select"
-              value={settings.autoZoomHoldSec}
-              onChange={(e) => update('autoZoomHoldSec', parseInt(e.target.value, 10))}
-            >
-              <option value="2">2 sn</option>
-              <option value="3">3 sn</option>
-              <option value="4">4 sn</option>
-              <option value="6">6 sn</option>
-            </select>
-          </div>
-        )}
-
         {/* ── File Settings ── */}
         <SectionTitle>{t('settings.fileSettings')}</SectionTitle>
 

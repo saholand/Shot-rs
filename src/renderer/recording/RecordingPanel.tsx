@@ -170,113 +170,42 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
     return () => window.electronAPI.recording.removeQuickStartListener()
   }, [])
 
-  // ── Click-to-zoom IPC listeners ──────────────────────────────────
+  // ── Click-to-zoom (toolbar tool) ─────────────────────────────────
+  // The Zoom tool in the live toolbar captures the user's click on the
+  // annotation overlay and sends a single RECORDING_ZOOM_GO message
+  // (x, y in CSS screen pixels; level = target zoom). We scale x/y up
+  // by the source video's DPI factor to match baseRect coordinates,
+  // then pan-and-zoom toward that point with a 420ms cubic ease-out.
+  // level === 1.0 → smooth reset back to baseRect's center.
   useEffect(() => {
     if (phase !== 'recording' || !settings.zoomEnabled) return
 
-    const triggerZoom = (cx: number, cy: number, targetLevel: number) => {
-      const z = zoomStateRef.current
-      if (!z) return
-      z.fromLevel = z.level
-      z.fromCenterX = z.centerX
-      z.fromCenterY = z.centerY
-      z.toLevel = targetLevel
-      z.toCenterX = cx
-      z.toCenterY = cy
-      z.animStart = performance.now()
-      z.animDuration = 350
-      z.active = targetLevel > 1.01
-    }
-
-    const onTrigger = (payload: { x: number; y: number; scaleFactor: number }) => {
+    const onZoomGo = (payload: { x: number; y: number; level: number }) => {
       if (isPausedRef.current) return
       const z = zoomStateRef.current
       if (!z) return
-      // payload x/y is virtual-desktop physical pixels. Our baseRect.sx/sy
-      // start at the source video's (0,0) which equals the captured
-      // display's (0,0) for full-screen, or display.x for region. The
-      // mouse-hook reports absolute coords; clamp inside baseRect.
-      if (z.active && z.toLevel > 1.01) {
-        triggerZoom(z.centerX, z.centerY, 1) // toggle back to 1×
+      const sf = cropScaleFactorRef.current || window.devicePixelRatio || 1
+      z.fromLevel = z.level
+      z.fromCenterX = z.centerX
+      z.fromCenterY = z.centerY
+      z.toLevel = payload.level
+      if (payload.level <= 1.01) {
+        // Reset: keep current center on the way back so the pan looks
+        // natural; baseRect-clamping in drawOnce already prevents drift.
+        z.toCenterX = z.centerX
+        z.toCenterY = z.centerY
       } else {
-        triggerZoom(payload.x, payload.y, settings.zoomDefaultLevel || 2.5)
+        z.toCenterX = payload.x * sf
+        z.toCenterY = payload.y * sf
       }
-    }
-
-    const onWheel = (payload: { delta: number }) => {
-      if (isPausedRef.current) return
-      const z = zoomStateRef.current
-      if (!z || !z.active) return
-      const next = Math.max(1, Math.min(6, z.toLevel - payload.delta * 0.5))
-      triggerZoom(z.centerX, z.centerY, next)
-    }
-
-    window.electronAPI.recording.onZoomTrigger(onTrigger)
-    window.electronAPI.recording.onZoomWheel(onWheel)
-    return () => {
-      window.electronAPI.recording.removeZoomTriggerListener()
-      window.electronAPI.recording.removeZoomWheelListener()
-    }
-  }, [phase, settings.zoomEnabled, settings.zoomDefaultLevel])
-
-  // ── Auto-zoom on click-cluster activity ──────────────────────────
-  // Listens to mousedown events forwarded from main and triggers a
-  // zoom-in when 2+ clicks land within 200px / 800ms. After
-  // autoZoomHoldSec without further clusters, eases back to 1×.
-  useEffect(() => {
-    if (phase !== 'recording' || !settings.autoZoomEnabled) return
-
-    const recent: { x: number; y: number; t: number }[] = []
-    let resetTimeout: ReturnType<typeof setTimeout> | null = null
-
-    const easeTo = (cx: number, cy: number, target: number) => {
-      const z = zoomStateRef.current
-      if (!z) return
-      z.fromLevel = z.level
-      z.fromCenterX = z.centerX
-      z.fromCenterY = z.centerY
-      z.toLevel = target
-      z.toCenterX = cx
-      z.toCenterY = cy
       z.animStart = performance.now()
-      z.animDuration = 400
-      z.active = target > 1.01
+      z.animDuration = 420
+      z.active = payload.level > 1.01
     }
 
-    const onClick = (payload: { x: number; y: number; button: number }) => {
-      if (isPausedRef.current) return
-      if (payload.button !== 1) return // left clicks only
-      const now = performance.now()
-      // Drop clicks older than 800ms
-      while (recent.length && now - recent[0].t > 800) recent.shift()
-      recent.push({ x: payload.x, y: payload.y, t: now })
-
-      // Detect cluster: at least 2 clicks within 200px of each other
-      if (recent.length >= 2) {
-        const last = recent[recent.length - 1]
-        const prev = recent[recent.length - 2]
-        const dx = last.x - prev.x
-        const dy = last.y - prev.y
-        if (Math.hypot(dx, dy) <= 200) {
-          // Center on the average of the cluster
-          const cx = (last.x + prev.x) / 2
-          const cy = (last.y + prev.y) / 2
-          easeTo(cx, cy, settings.zoomDefaultLevel || 2)
-          // Schedule a reset after holdSec; cluster extension restarts it
-          if (resetTimeout) clearTimeout(resetTimeout)
-          resetTimeout = setTimeout(() => {
-            easeTo(cx, cy, 1)
-          }, (settings.autoZoomHoldSec ?? 3) * 1000)
-        }
-      }
-    }
-
-    window.electronAPI.recording.onClickEvent(onClick)
-    return () => {
-      window.electronAPI.recording.removeClickEventListener()
-      if (resetTimeout) clearTimeout(resetTimeout)
-    }
-  }, [phase, settings.autoZoomEnabled, settings.autoZoomHoldSec, settings.zoomDefaultLevel])
+    window.electronAPI.recording.onZoomGo(onZoomGo)
+    return () => window.electronAPI.recording.removeZoomGoListener()
+  }, [phase, settings.zoomEnabled])
 
   // Listen for region selection result
   useEffect(() => {
@@ -401,13 +330,12 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
       // ── Decide whether we need the canvas compositing pipeline ─────
       // Canvas runs whenever:
       //   - user picked a region (so we must crop),
-      //   - click-to-zoom is enabled (manual zoom transform per frame),
-      //   - auto-zoom is enabled (cluster-detected zoom).
+      //   - click-to-zoom is enabled (manual zoom transform per frame).
       // Webcam is NOT canvas-composed — it lives in its own draggable
       // window that the OS desktopCapturer picks up alongside the rest
       // of the screen.
       const cropRegion = region || cropRegionRef.current
-      const needsCompositing = !!cropRegion || settings.zoomEnabled || settings.autoZoomEnabled
+      const needsCompositing = !!cropRegion || settings.zoomEnabled
       let recordStream: MediaStream
 
       if (needsCompositing) {
@@ -446,7 +374,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
         const ctx = canvas.getContext('2d')!
 
         // Initialize zoom state (level=1, centered on baseRect)
-        if (settings.zoomEnabled || settings.autoZoomEnabled) {
+        if (settings.zoomEnabled) {
           const cx = baseRect.sx + baseRect.w / 2
           const cy = baseRect.sy + baseRect.h / 2
           zoomStateRef.current = {

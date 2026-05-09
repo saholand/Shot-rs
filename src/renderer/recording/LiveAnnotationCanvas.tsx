@@ -22,6 +22,7 @@ interface Props {
   arrowStyle: ArrowStyle
   eraserSize: EraserSize
   coverStyle: CoverStyle
+  zoomLevel: number
   onAddAnnotation: (annotation: Annotation) => void
   onEraseAt: (center: Point, radius: number) => void
   onMoveAnnotation: (id: string, dx: number, dy: number) => void
@@ -57,6 +58,7 @@ export function LiveAnnotationCanvas({
   arrowStyle,
   eraserSize,
   coverStyle,
+  zoomLevel,
   onAddAnnotation,
   onEraseAt,
   onMoveAnnotation,
@@ -207,6 +209,19 @@ export function LiveAnnotationCanvas({
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!drawMode || !activeTool) return
     e.preventDefault()
+
+    // Zoom tool — single click sends a zoom-go IPC to the recording
+    // pipeline. Coordinates are CSS screen pixels (e.screenX/Y), which
+    // the receiving end multiplies by the source-video scaleFactor.
+    // Does not produce an annotation.
+    if (activeTool === 'zoom') {
+      window.electronAPI.recording.zoomGo({
+        x: e.screenX,
+        y: e.screenY,
+        level: zoomLevel
+      })
+      return
+    }
 
     // Eraser mode — start drag-erase. mouseUp ends it, mousemove keeps
     // erasing whatever's under the cursor (Paint-style, partial-erase).
@@ -369,6 +384,7 @@ export function LiveAnnotationCanvas({
     !drawMode ? 'default'
     : activeTool === 'move' ? 'none'  /* preview circle replaces cursor */
     : activeTool === 'drag' ? 'grab'
+    : activeTool === 'zoom' ? 'zoom-in'
     : activeTool === 'text' && pendingText ? 'text'
     : activeTool ? 'crosshair'
     : 'default'
