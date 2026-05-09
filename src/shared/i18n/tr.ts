@@ -159,6 +159,20 @@ export const tr: Record<string, string> = {
   'recording.cantStart': 'Kayıt başlatılamadı',
   'recording.maxDurationRemaining': 'Otomatik durmaya kalan süre',
   'recording.webcamUnavailable': 'Kamera kullanılamıyor — sadece ekran kaydedilecek',
+  'recording.trimBtn': '✂ Trim et',
+
+  // ── Trim editor ──
+  'trim.title': 'Kayıdı Kes',
+  'trim.close': 'Kapat',
+  'trim.start': 'Başlangıç',
+  'trim.end': 'Bitiş',
+  'trim.duration': 'Süre',
+  'trim.preview': '▶ Önizle',
+  'trim.previewing': 'Oynatılıyor...',
+  'trim.cancel': 'İptal',
+  'trim.saveTrimmed': 'Kesilmiş Halini Kaydet',
+  'trim.saving': 'Kesiliyor...',
+  'trim.saveFailed': 'Kesme başarısız',
 
   // ── Overlay / Screenshot ──
   'overlay.screenshot': 'Ekran Görüntüsü',

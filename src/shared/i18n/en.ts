@@ -159,6 +159,20 @@ export const en: Record<string, string> = {
   'recording.cantStart': 'Failed to start recording',
   'recording.maxDurationRemaining': 'Time until auto-stop',
   'recording.webcamUnavailable': 'Webcam unavailable — recording screen only',
+  'recording.trimBtn': '✂ Trim',
+
+  // ── Trim editor ──
+  'trim.title': 'Trim Recording',
+  'trim.close': 'Close',
+  'trim.start': 'Start',
+  'trim.end': 'End',
+  'trim.duration': 'Duration',
+  'trim.preview': '▶ Preview',
+  'trim.previewing': 'Playing...',
+  'trim.cancel': 'Cancel',
+  'trim.saveTrimmed': 'Save Trimmed',
+  'trim.saving': 'Trimming...',
+  'trim.saveFailed': 'Trim failed',
 
   // ── Overlay / Screenshot ──
   'overlay.screenshot': 'Screenshot',

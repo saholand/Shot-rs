@@ -158,6 +158,8 @@ export interface ElectronAPI {
     removeZoomTriggerListener: () => void
     onZoomWheel: (callback: (payload: ZoomWheelPayload) => void) => void
     removeZoomWheelListener: () => void
+    // Trim editor
+    trim: (payload: { inputPath: string; startSec: number; endSec: number }) => Promise<RecordingResult>
   }
 
   app: {

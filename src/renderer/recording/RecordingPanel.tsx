@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { SourcePicker } from './SourcePicker'
+import { TrimEditor } from '../trim/TrimEditor'
 import { useTranslation } from '../hooks/useTranslation'
 import type { DesktopSource, SelectionRegion, RecordingRegionPayload } from '../../shared/types/ipc'
 import type { AppSettings, VideoFormat } from '../../shared/types/settings'
@@ -56,6 +57,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
   const [savedFilePath, setSavedFilePath] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [drawMode, setDrawMode] = useState(false)
+  const [trimOpen, setTrimOpen] = useState(false)
 
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
 
@@ -918,20 +920,40 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
       )}
 
       {phase === 'pick' && savedFilePath && (
-        <button
-          className="ann-btn ann-btn-share"
-          onClick={handleShare}
-          disabled={uploading}
-          style={{ marginTop: '4px' }}
-        >
-          {uploading ? t('recording.uploading') : t('recording.shareBtn')}
-        </button>
+        <div style={{ display: 'flex', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+          <button
+            className="ann-btn"
+            onClick={() => setTrimOpen(true)}
+            style={{ background: 'rgba(79, 163, 247, 0.4)', borderColor: 'rgba(79, 163, 247, 0.7)' }}
+          >
+            {t('recording.trimBtn')}
+          </button>
+          <button
+            className="ann-btn ann-btn-share"
+            onClick={handleShare}
+            disabled={uploading}
+          >
+            {uploading ? t('recording.uploading') : t('recording.shareBtn')}
+          </button>
+        </div>
       )}
 
       {phase === 'pick' && (
         <button className="back-btn" onClick={onBack}>
           {t('recording.back')}
         </button>
+      )}
+
+      {trimOpen && savedFilePath && (
+        <TrimEditor
+          filePath={savedFilePath}
+          onClose={() => setTrimOpen(false)}
+          onSaved={(newPath) => {
+            setSavedFilePath(newPath)
+            setStatus({ text: `${t('recording.saved')} ${newPath}`, type: 'success' })
+            setTrimOpen(false)
+          }}
+        />
       )}
     </div>
   )

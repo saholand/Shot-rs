@@ -94,7 +94,8 @@ const api: ElectronAPI = {
     },
     removeZoomWheelListener: () => {
       ipcRenderer.removeAllListeners(IPC_CHANNELS.RECORDING_ZOOM_WHEEL)
-    }
+    },
+    trim: (payload) => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_TRIM, payload)
   },
   app: {
     onForceMode: (callback) => {
