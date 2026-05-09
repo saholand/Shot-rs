@@ -129,6 +129,43 @@ export function WebcamApp() {
     target.addEventListener('pointercancel', onUp)
   }
 
+  // ── Drag handling ──────────────────────────────────────────────────
+  // Custom pointer-based drag — `-webkit-app-region: drag` is unreliable
+  // on Windows transparent + frame:false windows, so we implement it
+  // ourselves the same way resize works: capture pointer, listen to
+  // pointermove, push setBounds to main each frame.
+  const startDrag = async (e: React.PointerEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const target = e.currentTarget as HTMLElement
+    target.setPointerCapture(e.pointerId)
+
+    const initial = await window.webcamAPI.getBounds()
+    if (!initial) return
+    const startX = e.screenX
+    const startY = e.screenY
+
+    const onMove = (ev: PointerEvent) => {
+      const dx = ev.screenX - startX
+      const dy = ev.screenY - startY
+      window.webcamAPI.setBounds({
+        x: initial.x + dx,
+        y: initial.y + dy,
+        w: initial.w,
+        h: initial.h
+      })
+    }
+    const onUp = () => {
+      target.releasePointerCapture(e.pointerId)
+      target.removeEventListener('pointermove', onMove)
+      target.removeEventListener('pointerup', onUp)
+      target.removeEventListener('pointercancel', onUp)
+    }
+    target.addEventListener('pointermove', onMove)
+    target.addEventListener('pointerup', onUp)
+    target.addEventListener('pointercancel', onUp)
+  }
+
   const handles: Edge[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
 
   return (
@@ -140,8 +177,8 @@ export function WebcamApp() {
         <video ref={videoRef} className="wc-video" autoPlay muted playsInline />
       )}
 
-      {/* Drag handle: a thin transparent strip across the top */}
-      <div className="wc-drag-handle" title="Sürükle / Drag" />
+      {/* Drag area — covers most of the frame except the resize edges. */}
+      <div className="wc-drag-area" onPointerDown={startDrag} title="Sürükle / Drag" />
 
       {/* 8 resize handles */}
       {handles.map(h => (

@@ -285,6 +285,7 @@ export const en: Record<string, string> = {
   'liveToolbar.spotDimLow': 'Low',
   'liveToolbar.spotDimMed': 'Med',
   'liveToolbar.spotDimHigh': 'High',
+  'liveToolbar.webcam': 'Webcam (drag/resize)',
 
   // ── Source Picker ──
   'sourcePicker.loading': 'Loading sources...',

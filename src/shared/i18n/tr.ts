@@ -285,6 +285,7 @@ export const tr: Record<string, string> = {
   'liveToolbar.spotDimLow': 'Az',
   'liveToolbar.spotDimMed': 'Orta',
   'liveToolbar.spotDimHigh': 'Çok',
+  'liveToolbar.webcam': 'Kamera (sürükle/yeniden boyutlandır)',
 
   // ── Source Picker ──
   'sourcePicker.loading': 'Kaynaklar yükleniyor...',

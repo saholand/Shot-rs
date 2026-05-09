@@ -65,21 +65,89 @@ export function AnnotationToolbarApp() {
   const [spotEnabled, setSpotEnabled] = useState(false)
   const [spotRadius, setSpotRadius] = useState<SpotRadius>('medium')
   const [spotDim, setSpotDim] = useState<SpotDim>('medium')
+  // Webcam window toggle — fires the same IPC the pick-phase checkbox
+  // does. We don't need to read the canonical setting because the user
+  // sees the toggled state immediately (window open or not).
+  const [webcamOn, setWebcamOn] = useState(false)
+  const handleWebcamToggle = useCallback(() => {
+    const next = !webcamOn
+    setWebcamOn(next)
+    window.electronAPI.recording.toggleWebcam(next)
+  }, [webcamOn])
   const [textInput, setTextInput] = useState('')
 
   const textInputRef = useRef<HTMLInputElement>(null)
   const nativeColorRef = useRef<HTMLInputElement>(null)
 
-  const TOOLS: { id: LiveTool; label: string; icon: string; svgCustom?: boolean }[] = [
-    { id: 'pen', label: t('toolbar.pen'), icon: 'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z' },
-    { id: 'highlight', label: t('toolbar.highlighter'), icon: 'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM5 19v-1.17l9.93-9.93 1.17 1.17L6.17 19H5z' },
-    { id: 'arrow', label: t('toolbar.arrow'), icon: 'M12 2l-1.41 1.41L16.17 9H4v2h12.17l-5.58 5.59L12 18l8-8z' },
-    { id: 'rectangle', label: t('toolbar.rect'), icon: 'M3 3h18v18H3V3zm2 2v14h14V5H5z' },
-    { id: 'line', label: t('toolbar.line'), icon: 'M4.22 19.78l1.42 1.41L20.19 6.64l-1.41-1.42z' },
-    { id: 'text', label: t('toolbar.text'), icon: 'M5 4v3h5.5v12h3V7H19V4H5z' },
-    { id: 'cover', label: t('liveToolbar.blur'), icon: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z' },
-    { id: 'ocr', label: t('toolbar.ocr'), icon: 'ocr', svgCustom: true }
+  const TOOLS: { id: LiveTool; label: string }[] = [
+    { id: 'pen', label: t('toolbar.pen') },
+    { id: 'highlight', label: t('toolbar.highlighter') },
+    { id: 'arrow', label: t('toolbar.arrow') },
+    { id: 'rectangle', label: t('toolbar.rect') },
+    { id: 'line', label: t('toolbar.line') },
+    { id: 'text', label: t('toolbar.text') },
+    { id: 'cover', label: t('liveToolbar.blur') },
+    { id: 'ocr', label: t('toolbar.ocr') }
   ]
+
+  // Unified outline icon set, matches the screenshot toolbar style
+  // (stroke 2, rounded caps/joins).
+  const renderToolIcon = (id: LiveTool) => {
+    const wrap = (children: React.ReactNode) => (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        {children}
+      </svg>
+    )
+    switch (id) {
+      case 'pen':
+        return wrap(<>
+          <path d="M12 19l7-7 3 3-7 7-3-3z" />
+          <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+          <path d="M2 2l7.586 7.586" />
+          <circle cx="11" cy="11" r="2" />
+        </>)
+      case 'highlight':
+        return wrap(<>
+          <path d="M9 11l-6 6v4h4l6-6" />
+          <path d="M22 12l-7-7-8 8 7 7 8-8z" />
+          <path d="M14 6l4 4" />
+        </>)
+      case 'arrow':
+        return wrap(<><path d="M7 17L17 7" /><path d="M17 14V7h-7" /></>)
+      case 'rectangle':
+        return wrap(<rect x="4" y="4" width="16" height="16" rx="2" />)
+      case 'line':
+        return wrap(<path d="M5 19L19 5" />)
+      case 'text':
+        return wrap(<><path d="M5 5h14" /><path d="M12 5v14" /><path d="M9 19h6" /></>)
+      case 'cover':
+        return (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="6" cy="6" r="1.4" opacity="0.4" />
+            <circle cx="12" cy="6" r="1.4" opacity="0.65" />
+            <circle cx="18" cy="6" r="1.4" opacity="0.4" />
+            <circle cx="6" cy="12" r="1.4" opacity="0.65" />
+            <circle cx="12" cy="12" r="1.4" opacity="0.95" />
+            <circle cx="18" cy="12" r="1.4" opacity="0.65" />
+            <circle cx="6" cy="18" r="1.4" opacity="0.4" />
+            <circle cx="12" cy="18" r="1.4" opacity="0.65" />
+            <circle cx="18" cy="18" r="1.4" opacity="0.4" />
+          </svg>
+        )
+      case 'ocr':
+        return wrap(<>
+          <path d="M4 8V5h3" />
+          <path d="M20 8V5h-3" />
+          <path d="M4 16v3h3" />
+          <path d="M20 16v3h-3" />
+          <path d="M9 9v6" />
+          <path d="M14 15v-6" />
+          <path d="M9 12h5" />
+        </>)
+      default:
+        return null
+    }
+  }
 
   const sendCommand = useCallback((command: AnnotationCommand) => {
     window.annotationOverlayAPI.sendCommand(command)
@@ -503,19 +571,7 @@ export function AnnotationToolbarApp() {
             onClick={() => handleToolChange(activeTool === tool.id ? null : tool.id)}
             title={tool.label}
           >
-            {tool.svgCustom ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="7" height="7" rx="1"/>
-                <rect x="14" y="3" width="7" height="7" rx="1"/>
-                <rect x="3" y="14" width="7" height="7" rx="1"/>
-                <path d="M14 17h7" strokeWidth="2.5"/>
-                <path d="M17.5 14v7" strokeWidth="2.5"/>
-              </svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d={tool.icon} />
-              </svg>
-            )}
+            {renderToolIcon(tool.id)}
           </button>
         ))}
 
@@ -653,6 +709,18 @@ export function AnnotationToolbarApp() {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="2" fill="currentColor" opacity="0.18" />
             <circle cx="12" cy="12" r="4.5" fill="currentColor" opacity="0.95" />
+          </svg>
+        </button>
+
+        {/* Webcam toggle — opens / closes the draggable camera window */}
+        <button
+          className={`la-btn ${webcamOn ? 'la-btn-active' : ''}`}
+          onClick={handleWebcamToggle}
+          title={t('liveToolbar.webcam')}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="6" width="14" height="12" rx="2" />
+            <path d="M16 10l5-3v10l-5-3z" />
           </svg>
         </button>
 

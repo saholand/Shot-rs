@@ -23,89 +23,108 @@ interface FloatingToolbarProps {
   status: { text: string; type: 'success' | 'error' } | null
 }
 
+/**
+ * Unified icon set — all outline-stroke 2 with rounded caps & joins.
+ * Designed to feel cohesive across the toolbar instead of mixing
+ * filled/outline/different stroke weights.
+ */
 const ToolIcon = ({ id }: { id: string }) => {
+  // Common SVG props — keep every icon visually consistent.
+  const svg = (children: React.ReactNode) => (
+    <svg
+      width="16" height="16" viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round"
+    >
+      {children}
+    </svg>
+  )
+
   switch (id) {
     case 'move':
-      return (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M5 9l-3 3 3 3" /><path d="M9 5l3-3 3 3" /><path d="M15 19l-3 3-3-3" /><path d="M19 9l3 3-3 3" />
-          <path d="M2 12h20" /><path d="M12 2v20" />
-        </svg>
-      )
+      return svg(<>
+        <path d="M12 5v14M5 12h14" />
+        <path d="M9 8l-3 4 3 4M15 8l3 4-3 4M8 9l4-3 4 3M8 15l4 3 4-3" />
+      </>)
+
     case 'pen':
-      return (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
-        </svg>
-      )
+      // A clean pen / fountain-pen nib outline
+      return svg(<>
+        <path d="M12 19l7-7 3 3-7 7-3-3z" />
+        <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+        <path d="M2 2l7.586 7.586" />
+        <circle cx="11" cy="11" r="2" />
+      </>)
+
     case 'highlight':
-      return (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z" />
-          <rect x="3" y="19" width="6" height="2" rx="1" fill="currentColor" opacity="0.4" />
-        </svg>
-      )
+      // Highlighter / marker silhouette
+      return svg(<>
+        <path d="M9 11l-6 6v4h4l6-6" />
+        <path d="M22 12l-7-7-8 8 7 7 8-8z" />
+        <path d="M14 6l4 4" />
+      </>)
+
     case 'arrow':
-      return (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M5 19L19 5" /><path d="M12 5h7v7" />
-        </svg>
-      )
+      return svg(<>
+        <path d="M7 17L17 7" />
+        <path d="M17 14V7h-7" />
+      </>)
+
     case 'rectangle':
-      return (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <rect x="3" y="3" width="18" height="18" rx="2" />
-        </svg>
-      )
+      return svg(<rect x="4" y="4" width="16" height="16" rx="2" />)
+
     case 'line':
-      return (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-          <path d="M4 20L20 4" />
-        </svg>
-      )
+      return svg(<path d="M5 19L19 5" />)
+
     case 'text':
-      return (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M5 4v3h5.5v12h3V7H19V4z" />
-        </svg>
-      )
+      return svg(<>
+        <path d="M5 5h14" />
+        <path d="M12 5v14" />
+        <path d="M9 19h6" />
+      </>)
+
     case 'blur':
+      // Stylized 3x3 dots — outline, lighter weight via opacity
       return (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <rect x="3" y="3" width="18" height="18" rx="2" />
-          <circle cx="8" cy="8" r="1.5" fill="currentColor" opacity="0.3" />
-          <circle cx="12" cy="8" r="1.5" fill="currentColor" opacity="0.3" />
-          <circle cx="16" cy="8" r="1.5" fill="currentColor" opacity="0.3" />
-          <circle cx="8" cy="12" r="1.5" fill="currentColor" opacity="0.3" />
-          <circle cx="12" cy="12" r="1.5" fill="currentColor" opacity="0.3" />
-          <circle cx="16" cy="12" r="1.5" fill="currentColor" opacity="0.3" />
-          <circle cx="8" cy="16" r="1.5" fill="currentColor" opacity="0.3" />
-          <circle cx="12" cy="16" r="1.5" fill="currentColor" opacity="0.3" />
-          <circle cx="16" cy="16" r="1.5" fill="currentColor" opacity="0.3" />
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="6" cy="6" r="1.4" opacity="0.4" />
+          <circle cx="12" cy="6" r="1.4" opacity="0.65" />
+          <circle cx="18" cy="6" r="1.4" opacity="0.4" />
+          <circle cx="6" cy="12" r="1.4" opacity="0.65" />
+          <circle cx="12" cy="12" r="1.4" opacity="0.95" />
+          <circle cx="18" cy="12" r="1.4" opacity="0.65" />
+          <circle cx="6" cy="18" r="1.4" opacity="0.4" />
+          <circle cx="12" cy="18" r="1.4" opacity="0.65" />
+          <circle cx="18" cy="18" r="1.4" opacity="0.4" />
         </svg>
       )
+
     case 'eyedropper':
-      return (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M2 22l1-1h3l9-9" /><path d="M13 7l4 4" /><path d="M10.5 9.5l4 4" />
-          <circle cx="18" cy="4" r="2.5" fill="currentColor" stroke="none" />
-        </svg>
-      )
+      return svg(<>
+        <path d="M2 22l4-4" />
+        <path d="M5 19l9-9" />
+        <path d="M14 4l6 6-3 3-6-6z" />
+      </>)
+
     case 'eraser':
-      return (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M20 20H7L3 16l7-7 10 10z" />
-          <path d="M6 11l4-4" />
-        </svg>
-      )
+      // Tilted eraser, outline only
+      return svg(<>
+        <path d="M19 13l-6-6L4 16l3 3h10l5-5-3-3z" />
+        <path d="M9 11l4 4" />
+      </>)
+
     case 'ocr':
-      return (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
-          <rect x="3" y="14" width="7" height="7" rx="1" />
-          <path d="M14 17h7" strokeWidth="2.5" /><path d="M17.5 14v7" strokeWidth="2.5" />
-        </svg>
-      )
+      // 4 corner brackets framing characters
+      return svg(<>
+        <path d="M4 8V5h3" />
+        <path d="M20 8V5h-3" />
+        <path d="M4 16v3h3" />
+        <path d="M20 16v3h-3" />
+        <path d="M9 9v6" />
+        <path d="M14 15v-6" />
+        <path d="M9 12h5" />
+      </>)
+
     default:
       return null
   }

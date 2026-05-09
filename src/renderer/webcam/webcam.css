@@ -45,21 +45,22 @@ html, body, #webcam-root {
   background: rgba(20, 0, 0, 0.5);
 }
 
-/* Drag handle: top strip of the frame. -webkit-app-region: drag tells
-   Chromium to treat pointer down here as a window drag. */
-.wc-drag-handle {
+/* Drag area: covers the whole frame center; pointerdown here triggers
+   our custom JS drag (more reliable than -webkit-app-region: drag on
+   transparent frameless windows). Cursor is grab to hint draggability. */
+.wc-drag-area {
   position: absolute;
-  top: 0; left: 14%; right: 14%; height: 18%;
-  -webkit-app-region: drag;
+  inset: 8px;
+  cursor: grab;
   z-index: 5;
 }
+.wc-drag-area:active {
+  cursor: grabbing;
+}
 
-/* Resize handles — all at the same pointer-events region above the
-   drag handle. -webkit-app-region: no-drag so they don't get captured
-   by the drag area. Slightly visible on hover. */
+/* Resize handles — sit above the drag area on the edges. */
 .wc-resize {
   position: absolute;
-  -webkit-app-region: no-drag;
   z-index: 10;
 }
 .wc-resize-n  { top: 0; left: 14%; right: 14%; height: 6px; }
