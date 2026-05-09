@@ -4,6 +4,8 @@ import { DEFAULT_SETTINGS } from '../../shared/types/settings'
 import { useTranslation } from '../hooks/useTranslation'
 import { setLanguage as setI18nLanguage } from '../../shared/i18n'
 
+interface CameraOption { deviceId: string; label: string }
+
 interface Props {
   onBack: () => void
 }
@@ -114,6 +116,21 @@ export function SettingsPanel({ onBack }: Props) {
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState<StatusMessage | null>(null)
   const [dirty, setDirty] = useState(false)
+  const [cameras, setCameras] = useState<CameraOption[]>([])
+
+  // Enumerate cameras once. Note: device labels are hidden until the user
+  // grants camera permission at least once; so initial list may show
+  // empty labels.
+  useEffect(() => {
+    (async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        setCameras(devices
+          .filter(d => d.kind === 'videoinput')
+          .map(d => ({ deviceId: d.deviceId, label: d.label || 'Camera' })))
+      } catch { /* permission not granted yet */ }
+    })()
+  }, [])
 
   useEffect(() => {
     window.electronAPI.settings.get().then((s) => {
@@ -365,6 +382,87 @@ export function SettingsPanel({ onBack }: Props) {
             <option value="3600">1 saat</option>
           </select>
         </div>
+
+        <div className="settings-item">
+          <div className="settings-item-info">
+            <span className="settings-item-label">{t('settings.webcam')}</span>
+            <span className="settings-item-desc">{t('settings.webcamDesc')}</span>
+          </div>
+          <label className="settings-toggle">
+            <input
+              type="checkbox"
+              checked={settings.webcamEnabled}
+              onChange={(e) => update('webcamEnabled', e.target.checked)}
+            />
+            <span className="settings-toggle-slider" />
+          </label>
+        </div>
+
+        {settings.webcamEnabled && (
+          <>
+            <div className="settings-item">
+              <div className="settings-item-info">
+                <span className="settings-item-label">{t('settings.webcamDevice')}</span>
+                <span className="settings-item-desc">{t('settings.webcamDeviceDesc')}</span>
+              </div>
+              <select
+                className="settings-select"
+                value={settings.webcamDeviceId ?? ''}
+                onChange={(e) => update('webcamDeviceId', e.target.value || null)}
+              >
+                <option value="">{t('settings.webcamDeviceDefault')}</option>
+                {cameras.map(c => (
+                  <option key={c.deviceId} value={c.deviceId}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="settings-item">
+              <div className="settings-item-info">
+                <span className="settings-item-label">{t('settings.webcamPosition')}</span>
+              </div>
+              <select
+                className="settings-select"
+                value={settings.webcamPosition}
+                onChange={(e) => update('webcamPosition', e.target.value as AppSettings['webcamPosition'])}
+              >
+                <option value="tl">{t('settings.posTL')}</option>
+                <option value="tr">{t('settings.posTR')}</option>
+                <option value="bl">{t('settings.posBL')}</option>
+                <option value="br">{t('settings.posBR')}</option>
+              </select>
+            </div>
+
+            <div className="settings-item">
+              <div className="settings-item-info">
+                <span className="settings-item-label">{t('settings.webcamSize')}</span>
+              </div>
+              <select
+                className="settings-select"
+                value={settings.webcamSize}
+                onChange={(e) => update('webcamSize', e.target.value as AppSettings['webcamSize'])}
+              >
+                <option value="small">{t('settings.sizeSmall')}</option>
+                <option value="medium">{t('settings.sizeMed')}</option>
+                <option value="large">{t('settings.sizeLarge')}</option>
+              </select>
+            </div>
+
+            <div className="settings-item">
+              <div className="settings-item-info">
+                <span className="settings-item-label">{t('settings.webcamShape')}</span>
+              </div>
+              <select
+                className="settings-select"
+                value={settings.webcamShape}
+                onChange={(e) => update('webcamShape', e.target.value as AppSettings['webcamShape'])}
+              >
+                <option value="circle">{t('settings.shapeCircle')}</option>
+                <option value="rounded">{t('settings.shapeRounded')}</option>
+              </select>
+            </div>
+          </>
+        )}
 
         {/* ── File Settings ── */}
         <SectionTitle>{t('settings.fileSettings')}</SectionTitle>

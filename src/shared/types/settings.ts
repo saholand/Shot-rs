@@ -67,6 +67,13 @@ export interface AppSettings {
   cursorSpotlightEnabled: boolean
   cursorSpotlightRadius: 'small' | 'medium' | 'large'
   cursorSpotlightDim: 'low' | 'medium' | 'high'
+
+  // ── Webcam PIP ──
+  webcamEnabled: boolean
+  webcamDeviceId: string | null
+  webcamPosition: 'tl' | 'tr' | 'bl' | 'br'
+  webcamSize: 'small' | 'medium' | 'large'
+  webcamShape: 'circle' | 'rounded'
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -95,7 +102,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
   clickRippleSize: 'medium',
   cursorSpotlightEnabled: false,
   cursorSpotlightRadius: 'medium',
-  cursorSpotlightDim: 'medium'
+  cursorSpotlightDim: 'medium',
+  webcamEnabled: false,
+  webcamDeviceId: null,
+  webcamPosition: 'br',
+  webcamSize: 'medium',
+  webcamShape: 'circle'
 }
 
 /**
