@@ -79,6 +79,19 @@ export interface EffectsClickPayload {
   button: number
 }
 
+/** Trigger payload for the recording click-to-zoom feature. */
+export interface ZoomTriggerPayload {
+  x: number          // virtual-desktop physical pixels
+  y: number
+  scaleFactor: number
+  displayId: string
+}
+
+export interface ZoomWheelPayload {
+  /** +1 = wheel up (zoom in), -1 = wheel down (zoom out). */
+  delta: number
+}
+
 export interface ExportResult {
   success: boolean
   action: 'clipboard' | 'file' | 'capture'
@@ -140,6 +153,11 @@ export interface ElectronAPI {
     updateHighlighterCursor: (state: HighlighterCursorState) => void
     // Effects overlay (click ripple + spotlight)
     setEffectsState: (state: EffectsState) => void
+    // Click-to-zoom
+    onZoomTrigger: (callback: (payload: ZoomTriggerPayload) => void) => void
+    removeZoomTriggerListener: () => void
+    onZoomWheel: (callback: (payload: ZoomWheelPayload) => void) => void
+    removeZoomWheelListener: () => void
   }
 
   app: {

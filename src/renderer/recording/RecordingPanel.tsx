@@ -72,6 +72,17 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
   const cropStreamRef = useRef<MediaStream | null>(null)
   const webcamStreamRef = useRef<MediaStream | null>(null)
   const webcamVideoRef = useRef<HTMLVideoElement | null>(null)
+
+  // Click-to-zoom state, stepped each frame inside drawOnce. Center is in
+  // SOURCE-VIDEO physical pixels (so it composes cleanly with baseRect).
+  const zoomStateRef = useRef<{
+    active: boolean
+    level: number
+    centerX: number; centerY: number
+    fromLevel: number; fromCenterX: number; fromCenterY: number
+    toLevel: number;   toCenterX: number;   toCenterY: number
+    animStart: number; animDuration: number
+  } | null>(null)
   // Pending chunk-write count — replaces the unbounded Promise array.
   // Bumped on each writeChunk call, decremented on resolve. We poll this
   // (instead of awaiting an array of N resolved Promises) on stop.
@@ -152,6 +163,55 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
     })
     return () => window.electronAPI.recording.removeQuickStartListener()
   }, [])
+
+  // ── Click-to-zoom IPC listeners ──────────────────────────────────
+  useEffect(() => {
+    if (phase !== 'recording' || !settings.zoomEnabled) return
+
+    const triggerZoom = (cx: number, cy: number, targetLevel: number) => {
+      const z = zoomStateRef.current
+      if (!z) return
+      z.fromLevel = z.level
+      z.fromCenterX = z.centerX
+      z.fromCenterY = z.centerY
+      z.toLevel = targetLevel
+      z.toCenterX = cx
+      z.toCenterY = cy
+      z.animStart = performance.now()
+      z.animDuration = 350
+      z.active = targetLevel > 1.01
+    }
+
+    const onTrigger = (payload: { x: number; y: number; scaleFactor: number }) => {
+      if (isPausedRef.current) return
+      const z = zoomStateRef.current
+      if (!z) return
+      // payload x/y is virtual-desktop physical pixels. Our baseRect.sx/sy
+      // start at the source video's (0,0) which equals the captured
+      // display's (0,0) for full-screen, or display.x for region. The
+      // mouse-hook reports absolute coords; clamp inside baseRect.
+      if (z.active && z.toLevel > 1.01) {
+        triggerZoom(z.centerX, z.centerY, 1) // toggle back to 1×
+      } else {
+        triggerZoom(payload.x, payload.y, settings.zoomDefaultLevel || 2.5)
+      }
+    }
+
+    const onWheel = (payload: { delta: number }) => {
+      if (isPausedRef.current) return
+      const z = zoomStateRef.current
+      if (!z || !z.active) return
+      const next = Math.max(1, Math.min(6, z.toLevel - payload.delta * 0.5))
+      triggerZoom(z.centerX, z.centerY, next)
+    }
+
+    window.electronAPI.recording.onZoomTrigger(onTrigger)
+    window.electronAPI.recording.onZoomWheel(onWheel)
+    return () => {
+      window.electronAPI.recording.removeZoomTriggerListener()
+      window.electronAPI.recording.removeZoomWheelListener()
+    }
+  }, [phase, settings.zoomEnabled, settings.zoomDefaultLevel])
 
   // Listen for region selection result
   useEffect(() => {
@@ -312,11 +372,11 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
       // Canvas runs whenever:
       //   - user picked a region (so we must crop),
       //   - webcam PIP is active (compose camera onto frame),
-      //   - any future feature that draws extra layers (zoom).
+      //   - click-to-zoom is enabled (zoom transform applied each frame).
       // When none of those are on, fall through the fast path that feeds
       // the desktop track straight into MediaRecorder (no extra CPU).
       const cropRegion = region || cropRegionRef.current
-      const needsCompositing = !!cropRegion || !!webcamVideo
+      const needsCompositing = !!cropRegion || !!webcamVideo || settings.zoomEnabled
       let recordStream: MediaStream
 
       if (needsCompositing) {
@@ -354,6 +414,19 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
         canvas.height = baseRect.h
         const ctx = canvas.getContext('2d')!
 
+        // Initialize zoom state (level=1, centered on baseRect)
+        if (settings.zoomEnabled) {
+          const cx = baseRect.sx + baseRect.w / 2
+          const cy = baseRect.sy + baseRect.h / 2
+          zoomStateRef.current = {
+            active: false,
+            level: 1, centerX: cx, centerY: cy,
+            fromLevel: 1, fromCenterX: cx, fromCenterY: cy,
+            toLevel: 1, toCenterX: cx, toCenterY: cy,
+            animStart: 0, animDuration: 0
+          }
+        }
+
         // Pre-compute webcam PIP rect on the canvas (in source-pixel units).
         // Size relative to the SHORTER frame side so it scales sensibly on
         // both 16:9 and ultra-wide monitors.
@@ -375,8 +448,28 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
         let intervalHandle: ReturnType<typeof setInterval> | null = null
         const drawOnce = () => {
           try {
-            // Layer 1: desktop frame
-            ctx.drawImage(video, baseRect.sx, baseRect.sy, baseRect.w, baseRect.h, 0, 0, baseRect.w, baseRect.h)
+            // Step the zoom animation toward target (cubic ease-out)
+            const z = zoomStateRef.current
+            if (z && z.animDuration > 0) {
+              const t = Math.min(1, (performance.now() - z.animStart) / z.animDuration)
+              const e = 1 - Math.pow(1 - t, 3)
+              z.level = z.fromLevel + (z.toLevel - z.fromLevel) * e
+              z.centerX = z.fromCenterX + (z.toCenterX - z.fromCenterX) * e
+              z.centerY = z.fromCenterY + (z.toCenterY - z.fromCenterY) * e
+              if (t >= 1) z.animDuration = 0
+              if (z.toLevel <= 1.01) z.active = false
+            }
+            // Compute source rect from baseRect + zoom (level 1 = no zoom)
+            const lvl = z?.level ?? 1
+            const sw = baseRect.w / lvl
+            const sh = baseRect.h / lvl
+            let srcX = (z?.centerX ?? (baseRect.sx + baseRect.w / 2)) - sw / 2
+            let srcY = (z?.centerY ?? (baseRect.sy + baseRect.h / 2)) - sh / 2
+            // Clamp inside baseRect
+            srcX = Math.max(baseRect.sx, Math.min(srcX, baseRect.sx + baseRect.w - sw))
+            srcY = Math.max(baseRect.sy, Math.min(srcY, baseRect.sy + baseRect.h - sh))
+            // Layer 1: desktop frame (zoomed)
+            ctx.drawImage(video, srcX, srcY, sw, sh, 0, 0, baseRect.w, baseRect.h)
             // Layer 2: webcam PIP (clipped to circle or rounded square)
             if (webcamVideo && webcamVideo.videoWidth > 0) {
               ctx.save()
@@ -589,6 +682,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
     }
     cropRegionRef.current = null
     cropScaleFactorRef.current = 1
+    zoomStateRef.current = null
 
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop())

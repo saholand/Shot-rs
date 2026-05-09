@@ -9,7 +9,7 @@ import { startSession, stopSession, setSaving, isRecording } from '../recording/
 import { getMainWindow, setRecordingAlwaysOnTop } from '../windows/main-window'
 import { createAnnotationOverlay, closeAnnotationOverlay } from '../windows/annotation-overlay-window'
 import { addHistoryEntry } from '../services/history-store'
-import { getSettings } from '../services/settings-store'
+import { getSettings, getSetting } from '../services/settings-store'
 import { resolveFileName } from '../../shared/types/settings'
 import {
   initTempFile, writeChunk, finalizeTempFile,
@@ -48,6 +48,7 @@ export function registerRecordingIPC(): void {
     // Spin up the mouse hook to push cursor positions to the highlighter
     // overlay window. Best-effort — failures (missing native binary, AV)
     // just disable the highlighter cursor's live tracking.
+    const doubleClickWindowMs = getSetting('zoomDoubleClickWindowMs') ?? 350
     startMouseHook({
       onMouseMove: (payload) => {
         if (getHighlighterCursorWindow()) {
@@ -61,8 +62,20 @@ export function registerRecordingIPC(): void {
         if (getEffectsWindow()) {
           pushEffectsClick(payload)
         }
+      },
+      onZoomTrigger: (payload) => {
+        const win = getMainWindow()
+        if (win && !win.isDestroyed()) {
+          win.webContents.send(IPC_CHANNELS.RECORDING_ZOOM_TRIGGER, payload)
+        }
+      },
+      onWheel: (payload) => {
+        const win = getMainWindow()
+        if (win && !win.isDestroyed()) {
+          win.webContents.send(IPC_CHANNELS.RECORDING_ZOOM_WHEEL, payload)
+        }
       }
-    }).catch(err => console.warn('startMouseHook error:', err))
+    }, { doubleClickWindowMs }).catch(err => console.warn('startMouseHook error:', err))
 
     return { success: true }
   })

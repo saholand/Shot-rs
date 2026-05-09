@@ -3,7 +3,8 @@ import { IPC_CHANNELS } from '../shared/constants'
 import type {
   ElectronAPI, OverlayAPI, AnnotationOverlayAPI, AnnotationMode, ScreenBounds, SelectionRegion,
   HighlighterCursorState, HighlighterPosPayload,
-  EffectsState, EffectsClickPayload
+  EffectsState, EffectsClickPayload,
+  ZoomTriggerPayload, ZoomWheelPayload
 } from '../shared/types/ipc'
 
 const RESULT_CHANNEL = IPC_CHANNELS.SCREENSHOT_RESULT
@@ -80,6 +81,19 @@ const api: ElectronAPI = {
     // Effects (click ripple + spotlight) — single combined state push
     setEffectsState: (state: EffectsState) => {
       ipcRenderer.send(IPC_CHANNELS.EFFECTS_TOGGLE, state)
+    },
+    // Click-to-zoom triggers from main (mouse hook)
+    onZoomTrigger: (callback: (payload: ZoomTriggerPayload) => void) => {
+      ipcRenderer.on(IPC_CHANNELS.RECORDING_ZOOM_TRIGGER, (_e, payload) => callback(payload))
+    },
+    removeZoomTriggerListener: () => {
+      ipcRenderer.removeAllListeners(IPC_CHANNELS.RECORDING_ZOOM_TRIGGER)
+    },
+    onZoomWheel: (callback: (payload: ZoomWheelPayload) => void) => {
+      ipcRenderer.on(IPC_CHANNELS.RECORDING_ZOOM_WHEEL, (_e, payload) => callback(payload))
+    },
+    removeZoomWheelListener: () => {
+      ipcRenderer.removeAllListeners(IPC_CHANNELS.RECORDING_ZOOM_WHEEL)
     }
   },
   app: {

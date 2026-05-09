@@ -74,6 +74,11 @@ export interface AppSettings {
   webcamPosition: 'tl' | 'tr' | 'bl' | 'br'
   webcamSize: 'small' | 'medium' | 'large'
   webcamShape: 'circle' | 'rounded'
+
+  // ── Click-to-zoom ──
+  zoomEnabled: boolean
+  zoomDefaultLevel: number
+  zoomDoubleClickWindowMs: number
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -107,7 +112,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   webcamDeviceId: null,
   webcamPosition: 'br',
   webcamSize: 'medium',
-  webcamShape: 'circle'
+  webcamShape: 'circle',
+  zoomEnabled: false,
+  zoomDefaultLevel: 2.5,
+  zoomDoubleClickWindowMs: 350
 }
 
 /**

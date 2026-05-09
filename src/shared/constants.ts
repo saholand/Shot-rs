@@ -81,6 +81,10 @@ export const IPC_CHANNELS = {
   EFFECTS_CLICK: 'effects:click',
   EFFECTS_CURSOR_POS: 'effects:cursor-pos',
 
+  // Click-to-zoom (during recording)
+  RECORDING_ZOOM_TRIGGER: 'recording:zoom-trigger',
+  RECORDING_ZOOM_WHEEL: 'recording:zoom-wheel',
+
   // Region recording
   RECORDING_SELECT_REGION: 'recording:select-region',
   RECORDING_REGION_SELECTED: 'recording:region-selected',
