@@ -79,12 +79,6 @@ export interface AppSettings {
   // above override them when present.
   webcamPosition: 'tl' | 'tr' | 'bl' | 'br'
   webcamSize: 'small' | 'medium' | 'large'
-
-  // ── Click-to-zoom (toolbar tool) ──
-  /** Default level the toolbar starts at when the user enters zoom mode.
-   *  The tool itself is always available — there's no on/off toggle
-   *  because the canvas pipeline runs unconditionally. */
-  zoomDefaultLevel: number
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -119,8 +113,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   webcamBounds: null,
   webcamShape: 'circle',
   webcamPosition: 'br',
-  webcamSize: 'medium',
-  zoomDefaultLevel: 2
+  webcamSize: 'medium'
 }
 
 /**

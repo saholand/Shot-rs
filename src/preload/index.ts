@@ -3,8 +3,7 @@ import { IPC_CHANNELS } from '../shared/constants'
 import type {
   ElectronAPI, OverlayAPI, AnnotationOverlayAPI, AnnotationMode, ScreenBounds, SelectionRegion,
   HighlighterCursorState, HighlighterPosPayload,
-  EffectsState, EffectsClickPayload,
-  ZoomGoPayload
+  EffectsState, EffectsClickPayload
 } from '../shared/types/ipc'
 
 const RESULT_CHANNEL = IPC_CHANNELS.SCREENSHOT_RESULT
@@ -81,14 +80,6 @@ const api: ElectronAPI = {
     // Effects (click ripple + spotlight) — single combined state push
     setEffectsState: (state: EffectsState) => {
       ipcRenderer.send(IPC_CHANNELS.EFFECTS_TOGGLE, state)
-    },
-    // Click-to-zoom (toolbar zoom tool → RecordingPanel)
-    zoomGo: (payload: ZoomGoPayload) => ipcRenderer.send(IPC_CHANNELS.RECORDING_ZOOM_GO, payload),
-    onZoomGo: (callback: (payload: ZoomGoPayload) => void) => {
-      ipcRenderer.on(IPC_CHANNELS.RECORDING_ZOOM_GO, (_e, payload) => callback(payload))
-    },
-    removeZoomGoListener: () => {
-      ipcRenderer.removeAllListeners(IPC_CHANNELS.RECORDING_ZOOM_GO)
     },
     toggleWebcam: (enabled: boolean) => ipcRenderer.send(IPC_CHANNELS.WEBCAM_TOGGLE, enabled)
   },

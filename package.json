@@ -7,10 +7,10 @@
     "email": "alihanaydin.media@gmail.com"
   },
   "productName": "Shotırs",
-  "homepage": "https://github.com/saholand/shotirs",
+  "homepage": "https://github.com/saholand/Shot-rs",
   "repository": {
     "type": "git",
-    "url": "https://github.com/saholand/shotirs.git"
+    "url": "https://github.com/saholand/Shot-rs.git"
   },
   "main": "out/main/index.js",
   "scripts": {
@@ -75,7 +75,7 @@
       {
         "provider": "github",
         "owner": "saholand",
-        "repo": "shotirs"
+        "repo": "Shot-rs"
       }
     ],
     "nsis": {

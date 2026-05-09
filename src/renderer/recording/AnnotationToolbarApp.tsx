@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { AnnotationTool, CoverStyle } from '../../shared/types/annotation'
-import type { AnnotationCommand } from '../../shared/types/ipc'
+import type { AnnotationCommand, SpotlightTint } from '../../shared/types/ipc'
 import { useTranslation } from '../hooks/useTranslation'
 import './live-annotation.css'
 
-type LiveTool = 'pen' | 'arrow' | 'rectangle' | 'line' | 'highlight' | 'cover' | 'ocr' | 'text' | 'zoom'
+type LiveTool = 'pen' | 'arrow' | 'rectangle' | 'line' | 'highlight' | 'cover' | 'ocr' | 'text'
 type StrokeWidth = 'thin' | 'medium' | 'thick'
 type FontSize = 'small' | 'medium' | 'large'
 type ArrowStyle = 'filled' | 'outline'
@@ -25,13 +25,7 @@ const FONT_SIZES: { id: FontSize; label: string }[] = [
 
 /** Tools that have something to show in the sub-bar. Note: in live mode
  *  the eraser is named 'move' for legacy reasons. */
-const TOOLS_WITH_OPTIONS = new Set<string>(['pen', 'highlight', 'arrow', 'rectangle', 'line', 'text', 'move', 'cover', 'zoom'])
-
-const ZOOM_PRESETS: { value: number; label: string }[] = [
-  { value: 1.5, label: '1.5×' },
-  { value: 2,   label: '2×'   },
-  { value: 3,   label: '3×'   }
-]
+const TOOLS_WITH_OPTIONS = new Set<string>(['pen', 'highlight', 'arrow', 'rectangle', 'line', 'text', 'move', 'cover'])
 
 function isHexColor(s: string): boolean {
   return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(s.trim())
@@ -80,6 +74,11 @@ export function AnnotationToolbarApp() {
   const [spotEnabled, setSpotEnabled] = useState(false)
   const [spotRadius, setSpotRadius] = useState<SpotRadius>('medium')
   const [spotDim, setSpotDim] = useState<SpotDim>('medium')
+  // Cinematic tint + soft outer glow ring for the spotlight. Adding these
+  // here (vs. in settings) so the user can toy with them mid-recording
+  // and see the effect immediately.
+  const [spotTint, setSpotTint] = useState<SpotlightTint>('black')
+  const [spotGlow, setSpotGlow] = useState(false)
   // Webcam window toggle — fires the same IPC the pick-phase checkbox
   // does. We don't need to read the canonical setting because the user
   // sees the toggled state immediately (window open or not).
@@ -90,7 +89,6 @@ export function AnnotationToolbarApp() {
     window.electronAPI.recording.toggleWebcam(next)
   }, [webcamOn])
   const [textInput, setTextInput] = useState('')
-  const [zoomLevel, setZoomLevel] = useState<number>(2)
 
   const textInputRef = useRef<HTMLInputElement>(null)
   const nativeColorRef = useRef<HTMLInputElement>(null)
@@ -103,7 +101,6 @@ export function AnnotationToolbarApp() {
     { id: 'line', label: t('toolbar.line') },
     { id: 'text', label: t('toolbar.text') },
     { id: 'cover', label: t('liveToolbar.blur') },
-    { id: 'zoom', label: t('liveToolbar.zoom') },
     { id: 'ocr', label: t('toolbar.ocr') }
   ]
 
@@ -151,13 +148,6 @@ export function AnnotationToolbarApp() {
             <circle cx="18" cy="18" r="1.4" opacity="0.4" />
           </svg>
         )
-      case 'zoom':
-        return wrap(<>
-          <circle cx="11" cy="11" r="6.5" />
-          <path d="M21 21l-4.5-4.5" />
-          <path d="M11 8v6" />
-          <path d="M8 11h6" />
-        </>)
       case 'ocr':
         return wrap(<>
           <path d="M4 8V5h3" />
@@ -178,17 +168,12 @@ export function AnnotationToolbarApp() {
   }, [])
 
   const handleToolChange = useCallback((tool: AnnotationTool | null) => {
-    // Leaving zoom tool → smooth reset back to 1×. The user expects
-    // the framing to recover when they switch tools (Cap-style).
-    if (activeTool === 'zoom' && tool !== 'zoom') {
-      sendCommand({ type: 'zoom-reset' })
-    }
     setActiveTool(tool)
     // Always notify the canvas — null = "no drawing tool active"
     // (Select / pointer mode). Without this, switching to Select left
     // the canvas stuck on whatever tool was last set.
     sendCommand({ type: 'set-tool', tool })
-  }, [activeTool, sendCommand])
+  }, [sendCommand])
 
   const handleColorChange = useCallback((color: string) => {
     setActiveColor(color)
@@ -222,15 +207,6 @@ export function AnnotationToolbarApp() {
   const handleCoverStyleChange = useCallback((value: CoverStyle) => {
     setCoverStyle(value)
     sendCommand({ type: 'set-cover-style', value })
-  }, [sendCommand])
-
-  const handleZoomLevelChange = useCallback((value: number) => {
-    setZoomLevel(value)
-    sendCommand({ type: 'set-zoom-level', value })
-  }, [sendCommand])
-
-  const handleZoomReset = useCallback(() => {
-    sendCommand({ type: 'zoom-reset' })
   }, [sendCommand])
 
   // Highlighter cursor — toggles a fluorescent overlay disc following the
@@ -275,64 +251,87 @@ export function AnnotationToolbarApp() {
     }
   }, [activeColor, highlighterEnabled, highlighterThickness, highlighterMode])
 
-  // Combined effects state push: both ripple + spotlight live in one
-  // window so we always push the full snapshot on any change.
+  // Combined effects state push: ripple + spotlight live in one effects
+  // window, so any change pushes the full snapshot. Spotlight grew tint
+  // and glow params; we now take them as named overrides instead of
+  // adding more positional args to every caller.
+  type SpotOverrides = Partial<{
+    enabled: boolean
+    radius: SpotRadius
+    dim: SpotDim
+    tint: SpotlightTint
+    glow: boolean
+  }>
+  type RippleOverrides = Partial<{ enabled: boolean; color: string; size: RippleSize }>
+
   const pushEffects = useCallback((
-    rippleEn: boolean, rColor: string, rSize: RippleSize,
-    spotEn: boolean, sRadius: SpotRadius, sDim: SpotDim
+    rippleOver: RippleOverrides = {},
+    spotOver: SpotOverrides = {}
   ) => {
     window.electronAPI.recording.setEffectsState({
-      clickRipple: { enabled: rippleEn, color: rColor, size: rSize },
-      spotlight: { enabled: spotEn, radius: sRadius, dim: sDim }
+      clickRipple: {
+        enabled: rippleOver.enabled ?? rippleEnabled,
+        color:   rippleOver.color   ?? rippleColor,
+        size:    rippleOver.size    ?? rippleSize
+      },
+      spotlight: {
+        enabled: spotOver.enabled ?? spotEnabled,
+        radius:  spotOver.radius  ?? spotRadius,
+        dim:     spotOver.dim     ?? spotDim,
+        tint:    spotOver.tint    ?? spotTint,
+        glow:    spotOver.glow    ?? spotGlow
+      }
     })
-  }, [])
+  }, [rippleEnabled, rippleColor, rippleSize, spotEnabled, spotRadius, spotDim, spotTint, spotGlow])
 
   const handleRippleToggle = useCallback(() => {
     const next = !rippleEnabled
     setRippleEnabled(next)
-    pushEffects(next, rippleColor, rippleSize, spotEnabled, spotRadius, spotDim)
-  }, [rippleEnabled, rippleColor, rippleSize, spotEnabled, spotRadius, spotDim, pushEffects])
+    pushEffects({ enabled: next })
+  }, [rippleEnabled, pushEffects])
 
   const handleRippleSizeChange = useCallback((value: RippleSize) => {
     setRippleSize(value)
-    pushEffects(rippleEnabled, rippleColor, value, spotEnabled, spotRadius, spotDim)
-  }, [rippleEnabled, rippleColor, spotEnabled, spotRadius, spotDim, pushEffects])
+    pushEffects({ size: value })
+  }, [pushEffects])
 
   const handleRippleColorChange = useCallback((value: string) => {
     setRippleColor(value)
-    pushEffects(rippleEnabled, value, rippleSize, spotEnabled, spotRadius, spotDim)
-  }, [rippleEnabled, rippleSize, spotEnabled, spotRadius, spotDim, pushEffects])
+    pushEffects({ color: value })
+  }, [pushEffects])
 
   const handleSpotToggle = useCallback(() => {
     const next = !spotEnabled
     setSpotEnabled(next)
-    pushEffects(rippleEnabled, rippleColor, rippleSize, next, spotRadius, spotDim)
-  }, [spotEnabled, rippleEnabled, rippleColor, rippleSize, spotRadius, spotDim, pushEffects])
+    pushEffects({}, { enabled: next })
+  }, [spotEnabled, pushEffects])
 
   const handleSpotRadiusChange = useCallback((value: SpotRadius) => {
     setSpotRadius(value)
-    pushEffects(rippleEnabled, rippleColor, rippleSize, spotEnabled, value, spotDim)
-  }, [rippleEnabled, rippleColor, rippleSize, spotEnabled, spotDim, pushEffects])
+    pushEffects({}, { radius: value })
+  }, [pushEffects])
 
   const handleSpotDimChange = useCallback((value: SpotDim) => {
     setSpotDim(value)
-    pushEffects(rippleEnabled, rippleColor, rippleSize, spotEnabled, spotRadius, value)
-  }, [rippleEnabled, rippleColor, rippleSize, spotEnabled, spotRadius, pushEffects])
+    pushEffects({}, { dim: value })
+  }, [pushEffects])
+
+  const handleSpotTintChange = useCallback((value: SpotlightTint) => {
+    setSpotTint(value)
+    pushEffects({}, { tint: value })
+  }, [pushEffects])
+
+  const handleSpotGlowToggle = useCallback(() => {
+    const next = !spotGlow
+    setSpotGlow(next)
+    pushEffects({}, { glow: next })
+  }, [spotGlow, pushEffects])
 
   const handleUndo = useCallback(() => sendCommand({ type: 'undo' }), [sendCommand])
   const handleClear = useCallback(() => sendCommand({ type: 'clear' }), [sendCommand])
   const handleCloseDraw = useCallback(() => {
-    // Leaving draw mode while zoomed in would freeze the framing on
-    // the captured video — always reset before closing the overlay.
-    // Wrapped: if sendCommand fails (preload race on first mount), we
-    // still want the toggle to fire so the user isn't stuck in draw mode.
-    try {
-      sendCommand({ type: 'zoom-reset' })
-    } catch (err) {
-      console.warn('[toolbar] zoom-reset send failed:', err)
-    }
     window.annotationOverlayAPI.toggle()
-  }, [sendCommand])
+  }, [])
   const handleStopRecording = useCallback(() => window.annotationOverlayAPI.stopRecording(), [])
 
   const handleTextSubmit = useCallback(() => {
@@ -378,7 +377,6 @@ export function AnnotationToolbarApp() {
     sendCommand({ type: 'set-font-size', value: 'medium' })
     sendCommand({ type: 'set-arrow-style', value: 'filled' })
     sendCommand({ type: 'set-cover-style', value: 'noise' })
-    sendCommand({ type: 'set-zoom-level', value: 2 })
   }, [sendCommand])
 
   // Sub-bar content per tool
@@ -491,43 +489,6 @@ export function AnnotationToolbarApp() {
     </div>
   )
 
-  // Zoom tool sub-bar — preset pills (1.5/2/3) + a wider slider for fine
-  // control + Reset. Clicking on the canvas while this tool is active
-  // pans-and-zooms to the click point at the chosen level.
-  const renderZoomLevels = () => (
-    <>
-      <div className="la-sub-group">
-        <span className="la-sub-label">{t('liveToolbar.zoomLevel')}</span>
-        {ZOOM_PRESETS.map(p => (
-          <button
-            key={p.value}
-            className={`la-pill ${Math.abs(zoomLevel - p.value) < 0.01 ? 'la-pill-active' : ''}`}
-            onClick={() => handleZoomLevelChange(p.value)}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
-      <div className="la-sub-sep" />
-      <div className="la-sub-group la-sub-group-grow">
-        <input
-          type="range"
-          min="1.2"
-          max="5"
-          step="0.1"
-          value={zoomLevel}
-          onChange={e => handleZoomLevelChange(parseFloat(e.target.value))}
-          className="la-zoom-slider"
-        />
-        <span className="la-zoom-readout">{zoomLevel.toFixed(1)}×</span>
-      </div>
-      <div className="la-sub-sep" />
-      <button className="la-pill la-pill-warn" onClick={handleZoomReset} title={t('liveToolbar.zoomReset')}>
-        {t('liveToolbar.zoomReset')}
-      </button>
-    </>
-  )
-
   // Cover ("blur") style picker — 4 variants. Tooltip + thumbnail tile
   // for each so the user can preview the effect at-a-glance.
   const renderCoverStyles = () => (
@@ -590,6 +551,16 @@ export function AnnotationToolbarApp() {
     { id: 'medium', label: t('liveToolbar.spotDimMed') },
     { id: 'high', label: t('liveToolbar.spotDimHigh') }
   ]
+  // Tint colour swatches for the spotlight's dimmed area. The hex shown
+  // is a brighter representative of each preset so the user can recognise
+  // it; the actual rendered dim uses near-black with hue (in EffectsApp).
+  const SPOT_TINTS: { id: SpotlightTint; swatch: string; label: string }[] = [
+    { id: 'black',  swatch: '#000000', label: t('liveToolbar.spotTintBlack') },
+    { id: 'navy',   swatch: '#1a3060', label: t('liveToolbar.spotTintNavy') },
+    { id: 'sepia',  swatch: '#5a3a1a', label: t('liveToolbar.spotTintSepia') },
+    { id: 'forest', swatch: '#1a4028', label: t('liveToolbar.spotTintForest') },
+    { id: 'plum',   swatch: '#3a1a4a', label: t('liveToolbar.spotTintPlum') }
+  ]
   const renderSpot = () => (
     <>
       <div className="la-sub-group">
@@ -617,6 +588,29 @@ export function AnnotationToolbarApp() {
             {d.label}
           </button>
         ))}
+      </div>
+      <div className="la-sub-sep" />
+      <div className="la-sub-group">
+        <span className="la-sub-label">{t('liveToolbar.spotTint')}</span>
+        {SPOT_TINTS.map(s => (
+          <button
+            key={s.id}
+            className={`la-color ${spotTint === s.id ? 'la-color-active' : ''}`}
+            style={{ background: s.swatch, width: 16, height: 16 }}
+            onClick={() => handleSpotTintChange(s.id)}
+            title={s.label}
+          />
+        ))}
+      </div>
+      <div className="la-sub-sep" />
+      <div className="la-sub-group">
+        <button
+          className={`la-pill ${spotGlow ? 'la-pill-active' : ''}`}
+          onClick={handleSpotGlowToggle}
+          title={t('liveToolbar.spotGlowDesc')}
+        >
+          {t('liveToolbar.spotGlow')}
+        </button>
       </div>
     </>
   )
@@ -707,8 +701,6 @@ export function AnnotationToolbarApp() {
         return renderEraser()
       case 'cover':
         return renderCoverStyles()
-      case 'zoom':
-        return renderZoomLevels()
       default:
         // No tool with options selected — fall back to whichever effect
         // toggle is on, in priority order: ripple > spotlight > highlighter.

@@ -52,7 +52,7 @@ Tesseract.js bunları kendi CDN'inden çeker — bu durumda HTTP isteği
 sonra tekrar internet gerekmez.
 
 #### Otomatik güncelleme
-Uygulama açılışta GitHub'a (https://github.com/saholand/shotirs/releases)
+Uygulama açılışta GitHub'a (https://github.com/saholand/Shot-rs/releases)
 HTTPS isteği yapar. Sadece versiyon numaraları döner, kullanıcı bilgisi
 gönderilmez.
 
@@ -140,7 +140,7 @@ no further internet is required.
 
 ##### Auto-update
 On startup the app makes one HTTPS request to GitHub
-(https://github.com/saholand/shotirs/releases) for version info. Only
+(https://github.com/saholand/Shot-rs/releases) for version info. Only
 version numbers come back; no user data leaves the device.
 
 ### Camera / microphone / screen access

@@ -76,16 +76,6 @@ export function RecordingPanel({ onRecordingStart, onRecordingEnd, compact }: Re
   const audioRafRef = useRef<number | null>(null)
   const [micLevel, setMicLevel] = useState(0)
 
-  // Click-to-zoom state, stepped each frame inside drawOnce. Center is in
-  // SOURCE-VIDEO physical pixels (so it composes cleanly with baseRect).
-  const zoomStateRef = useRef<{
-    active: boolean
-    level: number
-    centerX: number; centerY: number
-    fromLevel: number; fromCenterX: number; fromCenterY: number
-    toLevel: number;   toCenterX: number;   toCenterY: number
-    animStart: number; animDuration: number
-  } | null>(null)
   // Pending chunk-write count — replaces the unbounded Promise array.
   // Bumped on each writeChunk call, decremented on resolve. We poll this
   // (instead of awaiting an array of N resolved Promises) on stop.
@@ -166,43 +156,6 @@ export function RecordingPanel({ onRecordingStart, onRecordingEnd, compact }: Re
     })
     return () => window.electronAPI.recording.removeQuickStartListener()
   }, [])
-
-  // ── Click-to-zoom (toolbar tool) ─────────────────────────────────
-  // The Zoom tool in the live toolbar captures the user's click on the
-  // annotation overlay and sends a single RECORDING_ZOOM_GO message
-  // (x, y in CSS screen pixels; level = target zoom). We scale x/y up
-  // by the source video's DPI factor to match baseRect coordinates,
-  // then pan-and-zoom toward that point with a 420ms cubic ease-out.
-  // level === 1.0 → smooth reset back to baseRect's center.
-  useEffect(() => {
-    if (phase !== 'recording') return
-
-    const onZoomGo = (payload: { x: number; y: number; level: number }) => {
-      if (isPausedRef.current) return
-      const z = zoomStateRef.current
-      if (!z) return
-      const sf = cropScaleFactorRef.current || window.devicePixelRatio || 1
-      z.fromLevel = z.level
-      z.fromCenterX = z.centerX
-      z.fromCenterY = z.centerY
-      z.toLevel = payload.level
-      if (payload.level <= 1.01) {
-        // Reset: keep current center on the way back so the pan looks
-        // natural; baseRect-clamping in drawOnce already prevents drift.
-        z.toCenterX = z.centerX
-        z.toCenterY = z.centerY
-      } else {
-        z.toCenterX = payload.x * sf
-        z.toCenterY = payload.y * sf
-      }
-      z.animStart = performance.now()
-      z.animDuration = 420
-      z.active = payload.level > 1.01
-    }
-
-    window.electronAPI.recording.onZoomGo(onZoomGo)
-    return () => window.electronAPI.recording.removeZoomGoListener()
-  }, [phase])
 
   // Listen for region selection result
   useEffect(() => {
@@ -393,44 +346,13 @@ export function RecordingPanel({ onRecordingStart, onRecordingEnd, compact }: Re
         canvas.height = baseRect.h
         const ctx = canvas.getContext('2d')!
 
-        // Initialize zoom state (level=1, centered on baseRect). Always
-        // populated so the Zoom tool can drive transforms without the
-        // user pre-enabling anything in settings.
-        const cx = baseRect.sx + baseRect.w / 2
-        const cy = baseRect.sy + baseRect.h / 2
-        zoomStateRef.current = {
-          active: false,
-          level: 1, centerX: cx, centerY: cy,
-          fromLevel: 1, fromCenterX: cx, fromCenterY: cy,
-          toLevel: 1, toCenterX: cx, toCenterY: cy,
-          animStart: 0, animDuration: 0
-        }
-
         let intervalHandle: ReturnType<typeof setInterval> | null = null
         const drawOnce = () => {
           try {
-            // Step the zoom animation toward target (cubic ease-out)
-            const z = zoomStateRef.current
-            if (z && z.animDuration > 0) {
-              const t = Math.min(1, (performance.now() - z.animStart) / z.animDuration)
-              const e = 1 - Math.pow(1 - t, 3)
-              z.level = z.fromLevel + (z.toLevel - z.fromLevel) * e
-              z.centerX = z.fromCenterX + (z.toCenterX - z.fromCenterX) * e
-              z.centerY = z.fromCenterY + (z.toCenterY - z.fromCenterY) * e
-              if (t >= 1) z.animDuration = 0
-              if (z.toLevel <= 1.01) z.active = false
-            }
-            // Compute source rect from baseRect + zoom (level 1 = no zoom)
-            const lvl = z?.level ?? 1
-            const sw = baseRect.w / lvl
-            const sh = baseRect.h / lvl
-            let srcX = (z?.centerX ?? (baseRect.sx + baseRect.w / 2)) - sw / 2
-            let srcY = (z?.centerY ?? (baseRect.sy + baseRect.h / 2)) - sh / 2
-            // Clamp inside baseRect
-            srcX = Math.max(baseRect.sx, Math.min(srcX, baseRect.sx + baseRect.w - sw))
-            srcY = Math.max(baseRect.sy, Math.min(srcY, baseRect.sy + baseRect.h - sh))
-            // Desktop frame (zoomed if zoom is active)
-            ctx.drawImage(video, srcX, srcY, sw, sh, 0, 0, baseRect.w, baseRect.h)
+            // Copy baseRect from the source video to the canvas. Used to
+            // crop region recordings; for full-screen the rect is the
+            // whole video frame so this is effectively a passthrough.
+            ctx.drawImage(video, baseRect.sx, baseRect.sy, baseRect.w, baseRect.h, 0, 0, baseRect.w, baseRect.h)
           } catch { /* video not ready */ }
         }
         const drawFrame = () => {
@@ -632,7 +554,6 @@ export function RecordingPanel({ onRecordingStart, onRecordingEnd, compact }: Re
     }
     cropRegionRef.current = null
     cropScaleFactorRef.current = 1
-    zoomStateRef.current = null
 
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop())

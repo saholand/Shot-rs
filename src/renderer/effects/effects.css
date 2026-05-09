@@ -29,3 +29,15 @@ html, body, #effects-root {
   pointer-events: none;
   will-change: background;
 }
+
+/* Warm halo layer rendered above .fx-spotlight when glow is enabled.
+   `mix-blend-mode: screen` makes the warm white add to whatever is
+   underneath instead of just overlaying — gives that "stage light"
+   feel where the centre brightens slightly above the screen content. */
+.fx-spotlight-glow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  will-change: background;
+  mix-blend-mode: screen;
+}

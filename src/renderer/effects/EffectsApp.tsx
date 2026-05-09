@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { EffectsState, EffectsClickPayload, HighlighterPosPayload } from '../../shared/types/ipc'
+import type { EffectsState, EffectsClickPayload, HighlighterPosPayload, SpotlightTint } from '../../shared/types/ipc'
 
 interface Ripple {
   id: number
@@ -32,9 +32,20 @@ const SPOTLIGHT_DIM: Record<'low' | 'medium' | 'high', number> = {
   high: 0.75
 }
 
+// Cinematic tint presets for the dimmed area. Each is a "near-black with
+// hue" colour — strong enough to read as tinted, dark enough that text
+// behind the spotlight stays unreadable (the whole point of dim).
+const SPOTLIGHT_TINT_RGB: Record<SpotlightTint, [number, number, number]> = {
+  black:  [0, 0, 0],
+  navy:   [10, 18, 38],     // deep blue
+  sepia:  [40, 25, 12],     // warm brown
+  forest: [10, 28, 18],     // dark green
+  plum:   [28, 12, 36]      // deep purple
+}
+
 const DEFAULT_STATE: EffectsState = {
   clickRipple: { enabled: false, color: '#4fa3f7', size: 'medium' },
-  spotlight: { enabled: false, radius: 'medium', dim: 'medium' }
+  spotlight: { enabled: false, radius: 'medium', dim: 'medium', tint: 'black', glow: false }
 }
 
 let ripIdSeq = 0
@@ -49,6 +60,9 @@ export function EffectsApp() {
   const cursorTargetRef = useRef<{ x: number; y: number }>({ x: -1000, y: -1000 })
   const cursorRenderRef = useRef<{ x: number; y: number }>({ x: -1000, y: -1000 })
   const spotlightElRef = useRef<HTMLDivElement | null>(null)
+  // Separate ref for the warm-white outer glow layer. rAF writes the same
+  // CSS variables to both so the bright halo follows the cursor exactly.
+  const glowElRef = useRef<HTMLDivElement | null>(null)
 
   // Wire IPC: state updates + click events from main
   useEffect(() => {
@@ -110,9 +124,10 @@ export function EffectsApp() {
     const tick = () => {
       const now = performance.now()
 
-      // Spotlight: smooth cursor lerp + radial-gradient mask via CSS var
-      const sp = spotlightElRef.current
-      if (sp) {
+      // Spotlight: smooth cursor lerp + radial-gradient mask via CSS var.
+      // We always step the lerp (even if the spotlight DOM is hidden) so
+      // there's no "snap" when the user toggles it back on.
+      {
         const t = cursorTargetRef.current
         const r = cursorRenderRef.current
         const dx = t.x - r.x
@@ -125,8 +140,18 @@ export function EffectsApp() {
           r.x += dx * 0.55
           r.y += dy * 0.55
         }
-        sp.style.setProperty('--cx', `${r.x}px`)
-        sp.style.setProperty('--cy', `${r.y}px`)
+        const cx = `${r.x}px`
+        const cy = `${r.y}px`
+        const sp = spotlightElRef.current
+        if (sp) {
+          sp.style.setProperty('--cx', cx)
+          sp.style.setProperty('--cy', cy)
+        }
+        const gl = glowElRef.current
+        if (gl) {
+          gl.style.setProperty('--cx', cx)
+          gl.style.setProperty('--cy', cy)
+        }
       }
 
       const container = containerRef.current
@@ -180,6 +205,13 @@ export function EffectsApp() {
   const spot = state.spotlight
   const spotRadius = SPOTLIGHT_RADIUS[spot.radius]
   const spotDim = SPOTLIGHT_DIM[spot.dim]
+  const tintRgb = SPOTLIGHT_TINT_RGB[spot.tint ?? 'black']
+  const tintCss = `${tintRgb[0]}, ${tintRgb[1]}, ${tintRgb[2]}`
+  // Inner clear zone vs. outer dim ring. With glow, we add a third stop
+  // so the bright disc has a soft falloff before reaching dim, giving a
+  // "stage light" feel instead of a hard cut.
+  const clearStop = Math.round(spotRadius * 0.55)
+  const glowStop = Math.round(spotRadius * 0.85)
 
   return (
     <>
@@ -188,14 +220,38 @@ export function EffectsApp() {
           ref={spotlightElRef}
           className="fx-spotlight"
           style={{
-            // Radial mask: transparent in a circle around cursor, dim
-            // black everywhere else. CSS variables let the rAF loop
-            // update the center without React re-render.
-            background: `radial-gradient(circle ${spotRadius}px at var(--cx) var(--cy),
-              transparent 0%,
-              transparent ${Math.round(spotRadius * 0.6)}px,
-              rgba(0, 0, 0, ${spotDim}) ${spotRadius}px,
-              rgba(0, 0, 0, ${spotDim}) 100%)`
+            // Radial mask: bright (transparent) at cursor, soft glow ring,
+            // then tinted dim area. CSS variables drive the centre so the
+            // rAF loop can update it without re-rendering the React tree.
+            background: spot.glow
+              ? `radial-gradient(circle ${spotRadius}px at var(--cx) var(--cy),
+                  transparent 0%,
+                  transparent ${clearStop}px,
+                  rgba(${tintCss}, ${spotDim * 0.4}) ${glowStop}px,
+                  rgba(${tintCss}, ${spotDim}) ${spotRadius}px,
+                  rgba(${tintCss}, ${spotDim}) 100%)`
+              : `radial-gradient(circle ${spotRadius}px at var(--cx) var(--cy),
+                  transparent 0%,
+                  transparent ${Math.round(spotRadius * 0.6)}px,
+                  rgba(${tintCss}, ${spotDim}) ${spotRadius}px,
+                  rgba(${tintCss}, ${spotDim}) 100%)`
+          }}
+        />
+      )}
+      {/* Outer glow ring — sits on top of the dim layer, slightly larger
+          than the clear zone, with a warm white falloff. Makes the spot
+          read as "lit from inside" rather than just "less dim here".
+          Position vars driven by the same rAF loop as the spotlight. */}
+      {spot.enabled && spot.glow && (
+        <div
+          ref={glowElRef}
+          className="fx-spotlight-glow"
+          style={{
+            background: `radial-gradient(circle ${Math.round(spotRadius * 1.05)}px at var(--cx) var(--cy),
+              rgba(255, 245, 220, 0.18) 0%,
+              rgba(255, 245, 220, 0.10) ${Math.round(spotRadius * 0.55)}px,
+              rgba(255, 245, 220, 0.04) ${Math.round(spotRadius * 0.85)}px,
+              transparent ${Math.round(spotRadius * 1.05)}px)`
           }}
         />
       )}

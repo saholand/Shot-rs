@@ -60,7 +60,13 @@ export interface HighlighterCursorState {
   mode?: 'disc' | 'ring'
 }
 
-/** Effects overlay state — click ripples and (Phase 3) cursor spotlight. */
+/** Spotlight tint preset — instead of plain black, the dimmed area can
+ *  be tinted (cinematic look). 'black' is the legacy default. */
+export type SpotlightTint = 'black' | 'navy' | 'sepia' | 'forest' | 'plum'
+
+/** Effects overlay state — click ripples and cursor spotlight.
+ *  Spotlight got upgraded: tint colour + outer glow + cursor halo for a
+ *  "stage light" look instead of just dim-and-cut. */
 export interface EffectsState {
   clickRipple: {
     enabled: boolean
@@ -71,6 +77,10 @@ export interface EffectsState {
     enabled: boolean
     radius: 'small' | 'medium' | 'large'
     dim: 'low' | 'medium' | 'high'
+    /** Background colour of the dimmed area. Defaults to 'black'. */
+    tint?: SpotlightTint
+    /** Soft outer glow ring around the bright spot. */
+    glow?: boolean
   }
 }
 
@@ -81,16 +91,6 @@ export interface EffectsClickPayload {
   y: number
   /** uiohook button code (1=L, 2=R, 3=M typically). */
   button: number
-}
-
-/** Toolbar-driven click-to-zoom payload. Coordinates are in CSS screen
- * pixels (e.screenX / e.screenY); the recording pipeline scales them up
- * by the display's scaleFactor to match the captured video's pixel grid. */
-export interface ZoomGoPayload {
-  x: number
-  y: number
-  /** Target zoom level. 1.0 = reset (smooth pan back to baseRect center). */
-  level: number
 }
 
 export interface ExportResult {
@@ -154,10 +154,6 @@ export interface ElectronAPI {
     updateHighlighterCursor: (state: HighlighterCursorState) => void
     // Effects overlay (click ripple + spotlight)
     setEffectsState: (state: EffectsState) => void
-    // Click-to-zoom (toolbar tool → recording pipeline)
-    zoomGo: (payload: ZoomGoPayload) => void
-    onZoomGo: (callback: (payload: ZoomGoPayload) => void) => void
-    removeZoomGoListener: () => void
     // Webcam window mid-session toggle
     toggleWebcam: (enabled: boolean) => void
   }
@@ -215,8 +211,6 @@ export type AnnotationCommand =
   | { type: 'set-arrow-style'; value: 'filled' | 'outline' }
   | { type: 'set-eraser-size'; value: 'small' | 'medium' | 'large' }
   | { type: 'set-cover-style'; value: 'noise' | 'pixelate' | 'solid' | 'frosted' }
-  | { type: 'set-zoom-level'; value: number }
-  | { type: 'zoom-reset' }
 
 export interface AnnotationOverlayAPI {
   onModeChange: (callback: (mode: AnnotationMode) => void) => void

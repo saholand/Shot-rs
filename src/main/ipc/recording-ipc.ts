@@ -117,15 +117,6 @@ export function registerRecordingIPC(): void {
     closeWebcamWindow()
   })
 
-  // Toolbar zoom tool → forward to main window (RecordingPanel listens
-  // and stages the canvas zoom transform).
-  ipcMain.on(IPC_CHANNELS.RECORDING_ZOOM_GO, (_event, payload: { x: number; y: number; level: number }) => {
-    const mw = getMainWindow()
-    if (mw && !mw.isDestroyed()) {
-      mw.webContents.send(IPC_CHANNELS.RECORDING_ZOOM_GO, payload)
-    }
-  })
-
   // Mid-recording webcam toggle (live toolbar / pick-phase quick toggle)
   ipcMain.on(IPC_CHANNELS.WEBCAM_TOGGLE, (_event, enabled: boolean) => {
     if (enabled) {

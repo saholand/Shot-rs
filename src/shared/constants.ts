@@ -81,9 +81,6 @@ export const IPC_CHANNELS = {
   EFFECTS_CLICK: 'effects:click',
   EFFECTS_CURSOR_POS: 'effects:cursor-pos',
 
-  // Click-to-zoom (during recording) — toolbar tool driven, single channel
-  RECORDING_ZOOM_GO: 'recording:zoom-go',
-
   // Webcam preview window
   WEBCAM_TOGGLE: 'webcam:toggle',
   WEBCAM_CONFIG: 'webcam:config',

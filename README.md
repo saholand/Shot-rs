@@ -20,15 +20,13 @@ Electron + React + TypeScript.
 - **Sistem sesi + mikrofon** (sistem sesi Windows-only)
 - **Webcam picture-in-picture** — sürüklenebilir, yeniden boyutlandırılabilir
 - **Canlı çizim** — kayıt sırasında ekrana not düş
-- **Click ripple, cursor spotlight, fluorescent cursor** — Loom/Cap-style efektler
-- **Click-to-zoom** — kayıt sırasında tıkladığın yere yumuşak zoom
-- **Trim editor** — kayıt sonrası video kesme
+- **Click ripple, cursor spotlight (sinematik tint + glow), fluorescent cursor** — Loom/Cap-style efektler
 - **Crash recovery** — beklenmedik kapanmada kayıt geri yüklenebilir
 
 ### 🛠 Diğer
 - **Türkçe + İngilizce** UI
 - **Global kısayollar** — PrintScreen, Ctrl+Alt+R, Ctrl+Shift+D, Ctrl+Shift+O
-- **History** — son 100 yakalama, bulk delete, GIF export, paylaşım linki
+- **History** — son 100 yakalama, bulk delete, paylaşım linki
 - **Tray menüsü** — pencere kapansa da arka planda çalışır
 - **Otomatik güncelleme** — GitHub Releases üzerinden
 
@@ -37,7 +35,7 @@ Electron + React + TypeScript.
 ## Kurulum
 
 ### Son sürümü indir
-[GitHub Releases](https://github.com/saholand/shotirs/releases) sayfasından
+[GitHub Releases](https://github.com/saholand/Shot-rs/releases) sayfasından
 en son `Shotirs-Setup-x.y.z.exe` (kurulumlu) ya da `Shotirs-x.y.z-portable.exe`
 (taşınabilir) dosyasını indir.
 
@@ -46,7 +44,7 @@ en son `Shotirs-Setup-x.y.z.exe` (kurulumlu) ya da `Shotirs-x.y.z-portable.exe`
 
 ### Kaynaktan derleme
 ```bash
-git clone https://github.com/saholand/shotirs.git
+git clone https://github.com/saholand/Shot-rs.git
 cd shotirs
 npm install
 npm run dev          # geliştirme modu
@@ -76,7 +74,7 @@ src/
     windows/    Pencere lifecycle (overlay, annotation, webcam, vs.)
     ipc/        IPC handler'ları (recording, screenshot, settings, OCR)
     services/   Tray, hotkey, settings store, logger, updater
-    recording/  MediaRecorder pipeline, temp file, trim, mouse hook
+    recording/  MediaRecorder pipeline, temp file, mouse hook
     screenshot/ Capture + export
   preload/      contextBridge API (renderer → main köprüsü)
   renderer/     React UI

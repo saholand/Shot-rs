@@ -21,15 +21,13 @@ Built with Electron + React + TypeScript.
 - **System audio + microphone** (system audio Windows-only)
 - **Webcam picture-in-picture** — draggable, resizable
 - **Live annotation** — draw on screen mid-recording
-- **Click ripple, cursor spotlight, fluorescent cursor** — Loom/Cap-style
-- **Click-to-zoom** — smooth zoom to where you click during recording
-- **Trim editor** — cut clips after recording
+- **Click ripple, cursor spotlight (cinematic tint + glow), fluorescent cursor** — Loom/Cap-style
 - **Crash recovery** — interrupted recordings can be restored
 
 ### 🛠 Other
 - **Turkish + English** UI
 - **Global hotkeys** — PrintScreen, Ctrl+Alt+R, Ctrl+Shift+D, Ctrl+Shift+O
-- **History** — last 100 captures, bulk delete, GIF export, share links
+- **History** — last 100 captures, bulk delete, share links
 - **Tray menu** — keeps running in the background after window close
 - **Auto-update** — via GitHub Releases
 
@@ -40,14 +38,14 @@ Built with Electron + React + TypeScript.
 ### Download a release
 Grab the latest `Shotirs-Setup-x.y.z.exe` (installer) or
 `Shotirs-x.y.z-portable.exe` (portable) from the
-[GitHub Releases](https://github.com/saholand/shotirs/releases) page.
+[GitHub Releases](https://github.com/saholand/Shot-rs/releases) page.
 
 > ⚠️ The build is not code-signed yet, so Windows SmartScreen may show
 > "Unknown publisher". Click **More info → Run anyway** to continue.
 
 ### Build from source
 ```bash
-git clone https://github.com/saholand/shotirs.git
+git clone https://github.com/saholand/Shot-rs.git
 cd shotirs
 npm install
 npm run dev      # development
@@ -77,7 +75,7 @@ src/
     windows/    Window lifecycle (overlay, annotation, webcam, ...)
     ipc/        IPC handlers (recording, screenshot, settings, OCR)
     services/   Tray, hotkey, settings, logger, auto-updater
-    recording/  MediaRecorder pipeline, temp file, trim, mouse hook
+    recording/  MediaRecorder pipeline, temp file, mouse hook
     screenshot/ Capture + export
   preload/      contextBridge API (renderer ↔ main)
   renderer/     React UI
