@@ -10,7 +10,11 @@ interface Ripple {
   baseSize: number
 }
 
-const RIPPLE_DURATION_MS = 500
+// Calibrated values (Loom/Cap reference): 380ms reads "snappy" without
+// trailing under fast clicks; 4 concurrent caps overlap; 1.8× expansion
+// keeps the ripple from sprawling past the click-target's neighborhood.
+const RIPPLE_DURATION_MS = 380
+const RIPPLE_MAX_CONCURRENT = 4
 const RIPPLE_BASE: Record<'small' | 'medium' | 'large', number> = {
   small: 60,
   medium: 100,
@@ -18,9 +22,9 @@ const RIPPLE_BASE: Record<'small' | 'medium' | 'large', number> = {
 }
 
 const SPOTLIGHT_RADIUS: Record<'small' | 'medium' | 'large', number> = {
-  small: 110,
-  medium: 180,
-  large: 280
+  small: 130,
+  medium: 200,
+  large: 320
 }
 const SPOTLIGHT_DIM: Record<'low' | 'medium' | 'high', number> = {
   low: 0.25,
@@ -64,10 +68,11 @@ export function EffectsApp() {
         color: ripple.color,
         baseSize: RIPPLE_BASE[ripple.size]
       })
-      // Cap at 6 concurrent ripples to avoid runaway memory on rapid
-      // clicks.
-      if (ripplesRef.current.length > 6) {
-        ripplesRef.current.splice(0, ripplesRef.current.length - 6)
+      // Cap concurrent ripples — beyond the cap older ones are dropped
+      // immediately rather than continuing to render. Calibrated to keep
+      // overlap visually clean during double/triple clicks.
+      if (ripplesRef.current.length > RIPPLE_MAX_CONCURRENT) {
+        ripplesRef.current.splice(0, ripplesRef.current.length - RIPPLE_MAX_CONCURRENT)
       }
     })
     window.effectsAPI.onCursorPos((p: HighlighterPosPayload) => {
@@ -100,11 +105,13 @@ export function EffectsApp() {
         const r = cursorRenderRef.current
         const dx = t.x - r.x
         const dy = t.y - r.y
-        if (Math.abs(dx) < 1 && Math.abs(dy) < 1) {
+        // Lerp 0.55 + 0.5px snap — matches the highlighter cursor so
+        // both effects respond at the same cadence under fast pans.
+        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
           r.x = t.x; r.y = t.y
         } else {
-          r.x += dx * 0.85
-          r.y += dy * 0.85
+          r.x += dx * 0.55
+          r.y += dy * 0.55
         }
         sp.style.setProperty('--cx', `${r.x}px`)
         sp.style.setProperty('--cy', `${r.y}px`)
@@ -128,9 +135,11 @@ export function EffectsApp() {
             el.dataset.rid = key
             container.appendChild(el)
           }
-          // Ease-out cubic: starts fast, ends slow
+          // Ease-out cubic: starts fast, ends slow. Expansion 0.4× → 1.8×
+          // (was 2.0× — slightly tighter so rapid clicks don't paint a
+          // wall of overlapping rings).
           const e = 1 - Math.pow(1 - t, 3)
-          const size = r.baseSize * (0.4 + 1.6 * e)
+          const size = r.baseSize * (0.4 + 1.4 * e)
           const opacity = 0.7 * (1 - e)
           const borderColor = r.color
           el.style.left = `${r.x - size / 2}px`

@@ -35,7 +35,17 @@ export async function startMouseHook(cbs: HookCallbacks): Promise<boolean> {
   }
   const { uIOhook } = mod
 
+  // uiohook fires mousemove at the OS event rate — up to 1000Hz on
+  // gaming mice or high-refresh displays. Forwarding every event over
+  // IPC saturates the renderer queue and produces visible jitter
+  // downstream. 16ms throttle clamps to ~60Hz, which matches the
+  // renderers' rAF loops and is indistinguishable visually.
+  const MOUSEMOVE_MIN_INTERVAL_MS = 16
+  let lastMouseMoveAt = 0
   const handleMouseMove = (e: { x: number; y: number }) => {
+    const now = Date.now()
+    if (now - lastMouseMoveAt < MOUSEMOVE_MIN_INTERVAL_MS) return
+    lastMouseMoveAt = now
     cbs.onMouseMove?.({ x: e.x, y: e.y })
   }
   const handleMouseDown = (e: { x: number; y: number; button: number }) => {

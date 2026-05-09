@@ -62,15 +62,16 @@ export function HighlighterCursorApp() {
     const tick = () => {
       const t = targetRef.current
       const r = renderRef.current
-      // Snap when the gap is small; otherwise fast lerp (0.85) so the
-      // disc keeps up with rapid movements.
+      // Lerp 0.55: 60fps'te ~3 frame içinde hedefe yakınsar — 0.85'in
+      // "yapışkan" hissini bırakır, kayda gözle görülür yumuşaklık verir.
+      // Snap altında kalan sub-piksel jitter'ı kessin diye 0.5px eşik.
       const dx = t.x - r.x
       const dy = t.y - r.y
-      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) {
+      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
         r.x = t.x; r.y = t.y
       } else {
-        r.x += dx * 0.85
-        r.y += dy * 0.85
+        r.x += dx * 0.55
+        r.y += dy * 0.55
       }
       const disc = discRef.current
       if (disc) {
