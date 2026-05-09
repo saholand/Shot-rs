@@ -323,7 +323,13 @@ export function AnnotationToolbarApp() {
   const handleCloseDraw = useCallback(() => {
     // Leaving draw mode while zoomed in would freeze the framing on
     // the captured video — always reset before closing the overlay.
-    sendCommand({ type: 'zoom-reset' })
+    // Wrapped: if sendCommand fails (preload race on first mount), we
+    // still want the toggle to fire so the user isn't stuck in draw mode.
+    try {
+      sendCommand({ type: 'zoom-reset' })
+    } catch (err) {
+      console.warn('[toolbar] zoom-reset send failed:', err)
+    }
     window.annotationOverlayAPI.toggle()
   }, [sendCommand])
   const handleStopRecording = useCallback(() => window.annotationOverlayAPI.stopRecording(), [])

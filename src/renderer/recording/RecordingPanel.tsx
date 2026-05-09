@@ -264,6 +264,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
     const source = overrideSource || selectedSource
     if (!source) return
 
+    console.log('[RecordingPanel] handleStartRecording begin', { source: source.id, region, isQuick })
     setStatus(null)
     setSavedFilePath(null)
     setIsPaused(false)
@@ -278,7 +279,9 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
     try {
       const useMic = isQuick ? false : micEnabled
       const useSystemAudio = settings.recordSystemAudio
+      console.log('[RecordingPanel] calling main RECORDING_START')
       const startResult = await window.electronAPI.recording.startRecording(source.id, source.name, useMic)
+      console.log('[RecordingPanel] RECORDING_START result:', startResult)
       if (!startResult.success) {
         setStatus({ text: startResult.error || t('recording.startFailed'), type: 'error' })
         return
@@ -532,6 +535,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
       recorder.start(5000)
       mediaRecorderRef.current = recorder
       setSelectedSource(source)
+      console.log('[RecordingPanel] setPhase(recording) → compact bar should render')
       setPhase('recording')
       onRecordingStart?.()
 
@@ -542,6 +546,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('recording.cantStart')
+      console.error('[RecordingPanel] handleStartRecording threw:', err)
       setStatus({ text: msg, type: 'error' })
       cleanupStreams()
     }

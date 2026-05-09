@@ -63,9 +63,14 @@ export function LiveAnnotationOverlay() {
         case 'set-zoom-level': setZoomLevel(cmd.value); break
         case 'zoom-reset':
           // Smooth reset: send a zoomGo with level=1.0 to the pipeline.
-          // We don't change zoomLevel state — that's the *next* zoom-in
-          // level the user picked, separate from the current applied zoom.
-          window.electronAPI.recording.zoomGo({ x: 0, y: 0, level: 1.0 })
+          // Wrapped because if zoomGo isn't exposed (older preload, race
+          // on first overlay mount) we don't want to crash the whole
+          // command handler — it would also kill set-tool / set-color.
+          try {
+            window.electronAPI?.recording?.zoomGo?.({ x: 0, y: 0, level: 1.0 })
+          } catch (err) {
+            console.warn('[LiveAnnotationOverlay] zoom-reset send failed:', err)
+          }
           break
       }
     })

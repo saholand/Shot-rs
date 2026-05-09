@@ -38,49 +38,73 @@ export function registerRecordingIPC(): void {
   })
 
   // Validate source exists and return its ID for getUserMedia constraint
-  // The renderer needs the source ID to create a MediaStream
+  // The renderer needs the source ID to create a MediaStream.
+  //
+  // Safety: this handler runs invoke-style — if it throws, the renderer
+  // hangs forever waiting on the unresolved promise. Wrap every side
+  // effect (window creation, mouse hook startup) in a try/catch so a
+  // single failure can't take down the whole start sequence.
   ipcMain.handle(IPC_CHANNELS.RECORDING_START, async (_event, sourceId: string, sourceName: string, micEnabled: boolean) => {
-    if (isRecording()) {
-      return { success: false, error: 'Already recording' }
-    }
-    startSession(sourceId, sourceName || sourceId, !!micEnabled)
-    // Open annotation overlay for live drawing during recording
-    createAnnotationOverlay()
-    // Keep compact bar above the overlay
-    setRecordingAlwaysOnTop(true)
+    try {
+      if (isRecording()) {
+        return { success: false, error: 'Already recording' }
+      }
+      console.log('[recording-ipc] RECORDING_START source=', sourceId, 'mic=', micEnabled)
+      startSession(sourceId, sourceName || sourceId, !!micEnabled)
 
-    // Open the webcam preview window if the user has it enabled. The
-    // window is what the desktopCapturer picks up — there's no separate
-    // canvas-compose path. User can drag/resize it freely.
-    const settings = getSettings()
-    if (settings.webcamEnabled) {
-      createWebcamWindow({
-        deviceId: settings.webcamDeviceId,
-        shape: settings.webcamShape
-      })
-    }
+      // Open annotation overlay for live drawing during recording.
+      // Failures here used to crash the handler silently; now we log
+      // and continue so the recording itself still starts.
+      try {
+        createAnnotationOverlay()
+      } catch (err) {
+        console.warn('[recording-ipc] createAnnotationOverlay failed:', err)
+      }
+      // Keep compact bar above the overlay
+      try {
+        setRecordingAlwaysOnTop(true)
+      } catch (err) {
+        console.warn('[recording-ipc] setRecordingAlwaysOnTop failed:', err)
+      }
 
-    // Spin up the mouse hook to push cursor positions to the highlighter
-    // overlay window + click events to the click-ripple effects window.
-    // Best-effort — failures (missing native binary, AV) just disable
-    // those visual effects without breaking the recording.
-    startMouseHook({
-      onMouseMove: (payload) => {
-        if (getHighlighterCursorWindow()) {
-          pushHighlighterPos(payload)
-        }
-        if (getEffectsWindow()) {
-          pushEffectsCursor(payload)
-        }
-      },
-      onMouseDown: (payload) => {
-        if (getEffectsWindow()) {
-          pushEffectsClick(payload)
+      // Open the webcam preview window if the user has it enabled.
+      const settings = getSettings()
+      if (settings.webcamEnabled) {
+        try {
+          createWebcamWindow({
+            deviceId: settings.webcamDeviceId,
+            shape: settings.webcamShape
+          })
+        } catch (err) {
+          console.warn('[recording-ipc] createWebcamWindow failed:', err)
         }
       }
-    }).catch(err => console.warn('startMouseHook error:', err))
 
-    return { success: true }
+      // Spin up the mouse hook for cursor effects + click ripple. Best-
+      // effort — uiohook native binary or AV blocks just disable visual
+      // effects without breaking the recording itself.
+      startMouseHook({
+        onMouseMove: (payload) => {
+          if (getHighlighterCursorWindow()) {
+            pushHighlighterPos(payload)
+          }
+          if (getEffectsWindow()) {
+            pushEffectsCursor(payload)
+          }
+        },
+        onMouseDown: (payload) => {
+          if (getEffectsWindow()) {
+            pushEffectsClick(payload)
+          }
+        }
+      }).catch(err => console.warn('startMouseHook error:', err))
+
+      return { success: true }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'unknown'
+      console.error('[recording-ipc] RECORDING_START fatal:', err)
+      return { success: false, error: `Recording start failed: ${msg}` }
+    }
   })
 
   // Stop recording (state only — renderer stops MediaRecorder itself)
