@@ -361,19 +361,48 @@ export function AnnotationToolbarApp() {
     </div>
   )
 
+  // Text tool sub-bar: font size pills + the text input itself. The
+  // input lived inline in the main row before but pushed every right-side
+  // button off the 820px window — moving it here keeps the main row stable
+  // and gives the input proper breathing room.
   const renderFont = () => (
-    <div className="la-sub-group">
-      <span className="la-sub-label">{t('toolbar.fontSize')}</span>
-      {FONT_SIZES.map(f => (
+    <>
+      <div className="la-sub-group">
+        <span className="la-sub-label">{t('toolbar.fontSize')}</span>
+        {FONT_SIZES.map(f => (
+          <button
+            key={f.id}
+            className={`la-pill ${fontSize === f.id ? 'la-pill-active' : ''}`}
+            onClick={() => handleFontChange(f.id)}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+      <div className="la-sub-sep" />
+      <div className="la-sub-group la-sub-group-grow">
+        <input
+          ref={textInputRef}
+          className="la-text-input la-text-input-sub"
+          type="text"
+          placeholder={t('liveToolbar.textPlaceholder')}
+          value={textInput}
+          onChange={e => setTextInput(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') { e.preventDefault(); handleTextSubmit() }
+            e.stopPropagation()
+          }}
+        />
         <button
-          key={f.id}
-          className={`la-pill ${fontSize === f.id ? 'la-pill-active' : ''}`}
-          onClick={() => handleFontChange(f.id)}
+          className="la-pill la-text-add-btn"
+          onClick={handleTextSubmit}
+          disabled={!textInput.trim()}
+          title={t('liveToolbar.textAdd')}
         >
-          {f.label}
+          +
         </button>
-      ))}
-    </div>
+      </div>
+    </>
   )
 
   const renderArrow = () => (
@@ -610,21 +639,6 @@ export function AnnotationToolbarApp() {
             {renderToolIcon(tool.id)}
           </button>
         ))}
-
-        {activeTool === 'text' && (
-          <input
-            ref={textInputRef}
-            className="la-text-input"
-            type="text"
-            placeholder={t('liveToolbar.textPlaceholder')}
-            value={textInput}
-            onChange={e => setTextInput(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') { e.preventDefault(); handleTextSubmit() }
-              e.stopPropagation()
-            }}
-          />
-        )}
 
         <div className="la-sep" />
 

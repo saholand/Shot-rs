@@ -261,6 +261,7 @@ export const en: Record<string, string> = {
   'liveToolbar.stopRecording': 'Stop Recording',
   'liveToolbar.moveDrag': 'Move (drag)',
   'liveToolbar.textPlaceholder': 'Type text, press Enter to add',
+  'liveToolbar.textAdd': 'Add text',
   'liveToolbar.blur': 'Blur',
   'liveToolbar.coverStyle': 'Style',
   'liveToolbar.coverNoise': 'Noise',

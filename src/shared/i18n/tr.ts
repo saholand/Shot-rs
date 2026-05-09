@@ -261,6 +261,7 @@ export const tr: Record<string, string> = {
   'liveToolbar.stopRecording': 'Kaydı Durdur',
   'liveToolbar.moveDrag': 'Taşı (sürükle)',
   'liveToolbar.textPlaceholder': 'Metin yaz, Enter ile ekle',
+  'liveToolbar.textAdd': 'Metin ekle',
   'liveToolbar.blur': 'Bulanıklaştır',
   'liveToolbar.coverStyle': 'Stil',
   'liveToolbar.coverNoise': 'Gürültü',

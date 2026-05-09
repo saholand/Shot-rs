@@ -242,6 +242,14 @@ html, body, #annotation-root, #toolbar-root {
   height: 28px;
   width: 140px;
   margin-left: 4px;
+}
+/* Sub-bar variant — wider, grows to fill the row */
+.la-text-input-sub {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 160px;
+  max-width: 320px;
+  margin-left: 0;
   padding: 2px 8px;
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 4px;
@@ -328,6 +336,21 @@ html, body, #annotation-root, #toolbar-root {
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+}
+/* Variant that grows to fill remaining sub-bar space — used by the
+ * text-tool input so it gets as much horizontal room as available. */
+.la-sub-group-grow {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.la-text-add-btn {
+  min-width: 28px;
+  font-weight: 600;
+}
+.la-text-add-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .la-sub-label {
