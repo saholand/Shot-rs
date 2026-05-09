@@ -61,12 +61,16 @@ export interface HighlightAnnotation extends BaseAnnotation {
   opacity: number
 }
 
+export type CoverStyle = 'noise' | 'pixelate' | 'solid' | 'frosted'
+
 export interface CoverAnnotation extends BaseAnnotation {
   type: 'cover'
   x: number
   y: number
   width: number
   height: number
+  /** Visual style — defaults to 'noise' when omitted (legacy annotations). */
+  style?: CoverStyle
 }
 
 export type Annotation =

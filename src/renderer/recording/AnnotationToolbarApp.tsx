@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { AnnotationTool } from '../../shared/types/annotation'
+import type { AnnotationTool, CoverStyle } from '../../shared/types/annotation'
 import type { AnnotationCommand } from '../../shared/types/ipc'
 import { t } from '../../shared/i18n'
 import './live-annotation.css'
@@ -42,7 +42,14 @@ const ERASER_SIZES: { id: EraserSize; label: string; dot: number }[] = [
 
 /** Tools that have something to show in the sub-bar. Note: in live mode
  *  the eraser is named 'move' for legacy reasons. */
-const TOOLS_WITH_OPTIONS = new Set<string>(['pen', 'highlight', 'arrow', 'rectangle', 'line', 'text', 'move'])
+const TOOLS_WITH_OPTIONS = new Set<string>(['pen', 'highlight', 'arrow', 'rectangle', 'line', 'text', 'move', 'cover'])
+
+const COVER_STYLES: { id: CoverStyle; label: string }[] = [
+  { id: 'noise', label: t('liveToolbar.coverNoise') },
+  { id: 'pixelate', label: t('liveToolbar.coverPixelate') },
+  { id: 'solid', label: t('liveToolbar.coverSolid') },
+  { id: 'frosted', label: t('liveToolbar.coverFrosted') }
+]
 
 function isHexColor(s: string): boolean {
   return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(s.trim())
@@ -56,6 +63,7 @@ export function AnnotationToolbarApp() {
   const [fontSize, setFontSize] = useState<FontSize>('medium')
   const [arrowStyle, setArrowStyle] = useState<ArrowStyle>('filled')
   const [eraserSize, setEraserSize] = useState<EraserSize>('medium')
+  const [coverStyle, setCoverStyle] = useState<CoverStyle>('noise')
   const [highlighterEnabled, setHighlighterEnabled] = useState(false)
   const [highlighterThickness, setHighlighterThickness] = useState<HighlighterThickness>('medium')
   const [highlighterMode, setHighlighterMode] = useState<'disc' | 'ring'>('disc')
@@ -188,6 +196,11 @@ export function AnnotationToolbarApp() {
   const handleEraserSizeChange = useCallback((value: EraserSize) => {
     setEraserSize(value)
     sendCommand({ type: 'set-eraser-size', value })
+  }, [sendCommand])
+
+  const handleCoverStyleChange = useCallback((value: CoverStyle) => {
+    setCoverStyle(value)
+    sendCommand({ type: 'set-cover-style', value })
   }, [sendCommand])
 
   // Highlighter cursor — toggles a fluorescent overlay disc following the
@@ -323,6 +336,7 @@ export function AnnotationToolbarApp() {
     sendCommand({ type: 'set-stroke-width', value: 'medium' })
     sendCommand({ type: 'set-font-size', value: 'medium' })
     sendCommand({ type: 'set-arrow-style', value: 'filled' })
+    sendCommand({ type: 'set-cover-style', value: 'noise' })
   }, [sendCommand])
 
   // Sub-bar content per tool
@@ -372,6 +386,26 @@ export function AnnotationToolbarApp() {
           onClick={() => handleArrowStyleChange(a.id)}
         >
           {a.label}
+        </button>
+      ))}
+    </div>
+  )
+
+  // Cover ("blur") style picker — 4 variants. Tooltip + thumbnail tile
+  // for each so the user can preview the effect at-a-glance.
+  const renderCoverStyles = () => (
+    <div className="la-sub-group">
+      <span className="la-sub-label">{t('liveToolbar.coverStyle')}</span>
+      {COVER_STYLES.map(s => (
+        <button
+          key={s.id}
+          className={`la-cover-tile ${coverStyle === s.id ? 'la-cover-tile-active' : ''}`}
+          onClick={() => handleCoverStyleChange(s.id)}
+          title={s.label}
+          aria-label={s.label}
+        >
+          <span className={`la-cover-thumb la-cover-thumb-${s.id}`} style={s.id === 'solid' ? { background: activeColor } : undefined} />
+          <span className="la-cover-tile-label">{s.label}</span>
         </button>
       ))}
     </div>
@@ -531,6 +565,8 @@ export function AnnotationToolbarApp() {
       case 'move':
         // Live mode legacy: 'move' is the eraser tool
         return renderEraser()
+      case 'cover':
+        return renderCoverStyles()
       default:
         // No tool with options selected — fall back to whichever effect
         // toggle is on, in priority order: ripple > spotlight > highlighter.
@@ -737,8 +773,7 @@ export function AnnotationToolbarApp() {
       <div className={`la-subbar ${showSubbar ? '' : 'la-subbar-empty'}`}>
         {showSubbar ? subbar : (
           <span className="la-sub-empty-hint">
-            {activeTool === 'cover' ? t('liveToolbar.blur')
-              : activeTool === 'ocr' ? 'OCR'
+            {activeTool === 'ocr' ? 'OCR'
               : activeTool === 'move' ? t('liveToolbar.eraser')
               : activeTool === 'drag' ? t('liveToolbar.moveDrag')
               : ''}

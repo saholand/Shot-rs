@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAnnotations } from '../annotation/hooks/useAnnotations'
 import { LiveAnnotationCanvas } from './LiveAnnotationCanvas'
 import type { AnnotationMode, AnnotationCommand } from '../../shared/types/ipc'
-import type { AnnotationTool } from '../../shared/types/annotation'
+import type { AnnotationTool, CoverStyle } from '../../shared/types/annotation'
 import './live-annotation.css'
 
 type StrokeWidth = 'thin' | 'medium' | 'thick'
@@ -26,6 +26,7 @@ export function LiveAnnotationOverlay() {
   const [fontSize, setFontSize] = useState<FontSize>('medium')
   const [arrowStyle, setArrowStyle] = useState<ArrowStyle>('filled')
   const [eraserSize, setEraserSize] = useState<EraserSize>('medium')
+  const [coverStyle, setCoverStyle] = useState<CoverStyle>('noise')
 
   const drawMode = mode === 'draw'
 
@@ -57,6 +58,7 @@ export function LiveAnnotationOverlay() {
         case 'set-font-size': setFontSize(cmd.value); break
         case 'set-arrow-style': setArrowStyle(cmd.value); break
         case 'set-eraser-size': setEraserSize(cmd.value); break
+        case 'set-cover-style': setCoverStyle(cmd.value); break
       }
     })
     return () => window.annotationOverlayAPI.removeCommandListener()
@@ -72,6 +74,7 @@ export function LiveAnnotationOverlay() {
         fontSize={fontSize}
         arrowStyle={arrowStyle}
         eraserSize={eraserSize}
+        coverStyle={coverStyle}
         onAddAnnotation={addAnnotation}
         onEraseAt={eraseAt}
         onMoveAnnotation={moveAnnotation}

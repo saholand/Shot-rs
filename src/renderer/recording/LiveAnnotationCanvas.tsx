@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
-import type { Annotation, AnnotationTool, Point } from '../../shared/types/annotation'
+import type { Annotation, AnnotationTool, CoverStyle, Point } from '../../shared/types/annotation'
 import { renderAll, renderAnnotation } from '../annotation/render'
 
 type StrokeWidth = 'thin' | 'medium' | 'thick'
@@ -21,6 +21,7 @@ interface Props {
   fontSize: FontSize
   arrowStyle: ArrowStyle
   eraserSize: EraserSize
+  coverStyle: CoverStyle
   onAddAnnotation: (annotation: Annotation) => void
   onEraseAt: (center: Point, radius: number) => void
   onMoveAnnotation: (id: string, dx: number, dy: number) => void
@@ -55,6 +56,7 @@ export function LiveAnnotationCanvas({
   fontSize,
   arrowStyle,
   eraserSize,
+  coverStyle,
   onAddAnnotation,
   onEraseAt,
   onMoveAnnotation,
@@ -127,7 +129,8 @@ export function LiveAnnotationCanvas({
       return {
         id: '__preview', type: 'cover', color: activeColor, strokeWidth: 0,
         x: Math.min(startPoint.x, currentPoint.x), y: Math.min(startPoint.y, currentPoint.y),
-        width: Math.abs(currentPoint.x - startPoint.x), height: Math.abs(currentPoint.y - startPoint.y)
+        width: Math.abs(currentPoint.x - startPoint.x), height: Math.abs(currentPoint.y - startPoint.y),
+        style: coverStyle
       }
     }
     if (activeTool === 'ocr') {
@@ -138,7 +141,7 @@ export function LiveAnnotationCanvas({
       }
     }
     return null
-  }, [drawing, activeTool, activeColor, startPoint, currentPoint, freehandPoints, sw, arrowStyle])
+  }, [drawing, activeTool, activeColor, startPoint, currentPoint, freehandPoints, sw, arrowStyle, coverStyle])
 
   // Redraw
   const redraw = useCallback(() => {
@@ -329,7 +332,8 @@ export function LiveAnnotationCanvas({
         onAddAnnotation({
           id: nextId(), type: 'cover', color: activeColor, strokeWidth: 0,
           x: Math.min(startPoint.x, currentPoint.x), y: Math.min(startPoint.y, currentPoint.y),
-          width: dx, height: dy
+          width: dx, height: dy,
+          style: coverStyle
         })
       }
       if (activeTool === 'ocr' && dx > 10 && dy > 10) {

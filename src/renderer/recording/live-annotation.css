@@ -551,3 +551,54 @@ html, body, #annotation-root, #toolbar-root {
     0 0 0 1.5px rgba(0, 0, 0, 0.55);
   background: rgba(255, 255, 255, 0.04);
 }
+
+/* ── Cover (blur) style picker ───────────────────── */
+
+.la-cover-tile {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 8px 0 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 11px;
+  cursor: pointer;
+  transition: border-color 120ms, background 120ms;
+}
+.la-cover-tile:hover {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.08);
+}
+.la-cover-tile-active {
+  border-color: #4fa3f7;
+  background: rgba(79, 163, 247, 0.18);
+  color: #ffffff;
+}
+
+.la-cover-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+}
+
+/* Per-style thumbnails approximate the look so users can preview */
+.la-cover-thumb-noise {
+  background:
+    repeating-conic-gradient(#666 0% 25%, #888 0% 50%) 0 0 / 4px 4px;
+}
+.la-cover-thumb-pixelate {
+  background:
+    linear-gradient(45deg, #5a5a5a 25%, #767676 25% 50%, #5a5a5a 50% 75%, #767676 75%) 0 0 / 8px 8px;
+}
+.la-cover-thumb-frosted {
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.85), rgba(255,255,255,0.55)),
+    repeating-linear-gradient(0deg, rgba(0,0,0,0.06) 0 1px, transparent 1px 3px);
+}
+.la-cover-tile-label {
+  letter-spacing: 0.2px;
+}

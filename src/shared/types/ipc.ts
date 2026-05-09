@@ -215,6 +215,7 @@ export type AnnotationCommand =
   | { type: 'set-font-size'; value: 'small' | 'medium' | 'large' }
   | { type: 'set-arrow-style'; value: 'filled' | 'outline' }
   | { type: 'set-eraser-size'; value: 'small' | 'medium' | 'large' }
+  | { type: 'set-cover-style'; value: 'noise' | 'pixelate' | 'solid' | 'frosted' }
 
 export interface AnnotationOverlayAPI {
   onModeChange: (callback: (mode: AnnotationMode) => void) => void
