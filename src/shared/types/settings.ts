@@ -51,6 +51,8 @@ export interface AppSettings {
   /** Capture system audio (desktop loopback) alongside mic. Windows-only;
    *  silently no-ops on platforms that don't expose loopback. */
   recordSystemAudio: boolean
+  /** Auto-stop the recording after this many seconds. null = no limit. */
+  recordingMaxDurationSec: number | null
 
   // ── Highlighter cursor ──
   highlighterCursorEnabled: boolean
@@ -75,6 +77,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   videoQuality: 'medium',
   videoFramerate: 30,
   recordSystemAudio: false,
+  recordingMaxDurationSec: null,
   highlighterCursorEnabled: false,
   highlighterCursorThickness: 'medium'
 }

@@ -89,6 +89,9 @@ export const en: Record<string, string> = {
   'settings.videoFramerateDesc': 'Higher fps is smoother but increases file size and CPU load',
   'settings.systemAudio': 'System audio',
   'settings.systemAudioDesc': 'Also record audio coming out of the system (game/music). Windows only',
+  'settings.maxDuration': 'Maximum duration',
+  'settings.maxDurationDesc': 'Recording stops automatically when the set duration is reached',
+  'settings.maxDurationNone': 'No limit',
   'settings.defaultSaveDir': 'Default save folder',
   'settings.defaultSaveDirDesc': 'If empty, you will be prompted each time',
   'settings.notSpecified': '(Not specified)',
@@ -133,6 +136,7 @@ export const en: Record<string, string> = {
   'recording.systemAudioUnavailable': 'System audio unavailable — recording video only',
   'recording.errorDuring': 'Error occurred during recording',
   'recording.cantStart': 'Failed to start recording',
+  'recording.maxDurationRemaining': 'Time until auto-stop',
 
   // ── Overlay / Screenshot ──
   'overlay.screenshot': 'Screenshot',

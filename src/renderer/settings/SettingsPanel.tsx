@@ -347,6 +347,25 @@ export function SettingsPanel({ onBack }: Props) {
           </label>
         </div>
 
+        <div className="settings-item">
+          <div className="settings-item-info">
+            <span className="settings-item-label">{t('settings.maxDuration')}</span>
+            <span className="settings-item-desc">{t('settings.maxDurationDesc')}</span>
+          </div>
+          <select
+            className="settings-select"
+            value={settings.recordingMaxDurationSec ?? ''}
+            onChange={(e) => update('recordingMaxDurationSec', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+          >
+            <option value="">{t('settings.maxDurationNone')}</option>
+            <option value="60">1 dk</option>
+            <option value="300">5 dk</option>
+            <option value="900">15 dk</option>
+            <option value="1800">30 dk</option>
+            <option value="3600">1 saat</option>
+          </select>
+        </div>
+
         {/* ── File Settings ── */}
         <SectionTitle>{t('settings.fileSettings')}</SectionTitle>
 

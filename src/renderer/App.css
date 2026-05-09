@@ -195,6 +195,15 @@ body {
   min-width: 42px;
 }
 
+.rec-compact-remaining {
+  font-family: monospace;
+  font-size: 11px;
+  color: #f7c14f;
+  margin-left: -6px;
+  opacity: 0.85;
+  letter-spacing: 0.02em;
+}
+
 .rec-compact-btn {
   width: 28px;
   height: 28px;

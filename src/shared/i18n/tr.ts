@@ -89,6 +89,9 @@ export const tr: Record<string, string> = {
   'settings.videoFramerateDesc': 'Yüksek fps daha akıcıdır ama dosya ve CPU yükü artar',
   'settings.systemAudio': 'Sistem sesi',
   'settings.systemAudioDesc': 'Sistemden çıkan sesi de kaydet (oyun/müzik). Sadece Windows',
+  'settings.maxDuration': 'Maksimum süre',
+  'settings.maxDurationDesc': 'Belirlenen süreye ulaşınca kayıt otomatik durur',
+  'settings.maxDurationNone': 'Sınır yok',
   'settings.defaultSaveDir': 'Varsayılan kayıt klasörü',
   'settings.defaultSaveDirDesc': 'Boş bırakılırsa her seferinde sorulur',
   'settings.notSpecified': '(Belirtilmemiş)',
@@ -133,6 +136,7 @@ export const tr: Record<string, string> = {
   'recording.systemAudioUnavailable': 'Sistem sesi alınamadı — sadece görüntü kaydediliyor',
   'recording.errorDuring': 'Kayıt sırasında hata oluştu',
   'recording.cantStart': 'Kayıt başlatılamadı',
+  'recording.maxDurationRemaining': 'Otomatik durmaya kalan süre',
 
   // ── Overlay / Screenshot ──
   'overlay.screenshot': 'Ekran Görüntüsü',

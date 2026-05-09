@@ -98,15 +98,24 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
     loadSources()
   }, [loadSources])
 
-  // Timer — pauses when isPausedRef is true
+  // Timer — pauses when isPausedRef is true. Also enforces the optional
+  // auto-stop max-duration: once elapsed reaches the limit, the recording
+  // is stopped automatically (paused time doesn't count).
   useEffect(() => {
     if (phase === 'recording') {
       setElapsed(0)
       isPausedRef.current = false
       timerRef.current = setInterval(() => {
-        if (!isPausedRef.current) {
-          setElapsed(prev => prev + 1)
-        }
+        if (isPausedRef.current) return
+        setElapsed(prev => {
+          const next = prev + 1
+          const max = settings.recordingMaxDurationSec
+          if (max && next >= max) {
+            // Defer to next tick so we don't trigger setState-during-render
+            setTimeout(() => handleStopRecording(), 0)
+          }
+          return next
+        })
       }, 1000)
     } else {
       if (timerRef.current) clearInterval(timerRef.current)
@@ -114,7 +123,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-  }, [phase])
+  }, [phase, settings.recordingMaxDurationSec])
 
   // Listen for annotation draw mode changes from main process
   useEffect(() => {
@@ -559,10 +568,17 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
 
   // Compact recording bar
   if (compact && phase === 'recording') {
+    const max = settings.recordingMaxDurationSec
+    const remaining = max ? Math.max(0, max - elapsed) : null
     return (
       <div className="rec-compact-inner">
         <span className={`rec-dot-sm ${isPaused ? 'rec-paused' : ''}`} />
         <span className="rec-compact-time">{formatTime(elapsed)}</span>
+        {remaining !== null && (
+          <span className="rec-compact-remaining" title={t('recording.maxDurationRemaining')}>
+            -{formatTime(remaining)}
+          </span>
+        )}
         <button className="rec-compact-btn" onClick={handlePauseResume} title={isPaused ? t('recording.resume') : t('recording.pause')}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             {isPaused
