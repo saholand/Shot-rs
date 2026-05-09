@@ -101,7 +101,8 @@ export async function createOverlayWindow(): Promise<BrowserWindow> {
       width,
       height,
       scaleFactor: display.scaleFactor,
-      magnifierEnabled: !!getSetting('magnifierEnabled')
+      magnifierEnabled: !!getSetting('magnifierEnabled'),
+      magnifierZoom: getSetting('magnifierZoom') ?? 'medium'
     })
     if (backgroundDataUrl) {
       overlayWindow.webContents.send(

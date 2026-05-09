@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { SourcePicker } from './SourcePicker'
 import { useTranslation } from '../hooks/useTranslation'
 import type { DesktopSource, SelectionRegion, RecordingRegionPayload } from '../../shared/types/ipc'
+import type { AppSettings, VideoFormat } from '../../shared/types/settings'
+import { VIDEO_BITRATE, DEFAULT_SETTINGS } from '../../shared/types/settings'
 
 interface RecordingPanelProps {
   onBack: () => void
@@ -12,14 +14,29 @@ interface RecordingPanelProps {
 
 type Phase = 'pick' | 'recording' | 'saving'
 
-const PREFERRED_MIME = [
+const WEBM_MIMES = [
   'video/webm;codecs=vp9',
   'video/webm;codecs=vp8',
   'video/webm'
 ]
+const MP4_MIMES = [
+  'video/mp4;codecs=h264',
+  'video/mp4;codecs=avc1',
+  'video/mp4'
+]
 
-function getSupportedMime(): string {
-  for (const mime of PREFERRED_MIME) {
+/**
+ * Pick the best mimeType supported by this Chromium given the user's
+ * preferred container. Falls back to whichever container is available so
+ * recording still works even if the preferred one isn't supported.
+ */
+function getSupportedMime(format: VideoFormat): string {
+  const primary = format === 'mp4' ? MP4_MIMES : WEBM_MIMES
+  for (const mime of primary) {
+    if (MediaRecorder.isTypeSupported(mime)) return mime
+  }
+  const fallback = format === 'mp4' ? WEBM_MIMES : MP4_MIMES
+  for (const mime of fallback) {
     if (MediaRecorder.isTypeSupported(mime)) return mime
   }
   return ''
@@ -40,8 +57,9 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
   const [uploading, setUploading] = useState(false)
   const [drawMode, setDrawMode] = useState(false)
 
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const chunksRef = useRef<Blob[]>([])
   const streamRef = useRef<MediaStream | null>(null)
   const micStreamRef = useRef<MediaStream | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -52,8 +70,17 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
   const cropVideoRef = useRef<HTMLVideoElement | null>(null)
   const cropAnimRef = useRef<number | null>(null)
   const cropStreamRef = useRef<MediaStream | null>(null)
-  const pendingWritesRef = useRef<Promise<void>[]>([])
+  // Pending chunk-write count — replaces the unbounded Promise array.
+  // Bumped on each writeChunk call, decremented on resolve. We poll this
+  // (instead of awaiting an array of N resolved Promises) on stop.
+  const pendingWritesCountRef = useRef(0)
+  const stopGuardRef = useRef(false)
   const handleStartRef = useRef<(overrideSource?: DesktopSource, region?: SelectionRegion, isQuick?: boolean, scaleFactor?: number) => Promise<void>>()
+
+  // Load settings on mount
+  useEffect(() => {
+    window.electronAPI.settings.get().then(s => setSettings(s)).catch(() => { /* keep defaults */ })
+  }, [])
 
   // Load sources
   const loadSources = useCallback(async () => {
@@ -126,8 +153,12 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
       // on multi-display setups.
       const allSources = await window.electronAPI.recording.getSources()
       const screenSources = allSources.filter(s => s.id.startsWith('screen:'))
+      // `s.display_id` would be authoritative but it's stripped in the
+      // shared DesktopSource type; fall back to a `:N:` boundary check on
+      // s.id (e.g. "screen:1:0") so displayId="1" doesn't accidentally
+      // match "screen:10:0".
       const matched = displayId
-        ? screenSources.find(s => s.id.includes(displayId)) ?? null
+        ? screenSources.find(s => s.id === `screen:${displayId}:0` || s.id.includes(`:${displayId}:`)) ?? null
         : null
       const screenSource = matched ?? screenSources[0]
       if (screenSource) {
@@ -173,7 +204,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
     setIsPaused(false)
     setMicActive(false)
 
-    const mimeType = getSupportedMime()
+    const mimeType = getSupportedMime(settings.videoFormat)
     if (!mimeType) {
       setStatus({ text: t('recording.noCodec'), type: 'error' })
       return
@@ -181,21 +212,55 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
 
     try {
       const useMic = isQuick ? false : micEnabled
+      const useSystemAudio = settings.recordSystemAudio
       const startResult = await window.electronAPI.recording.startRecording(source.id, source.name, useMic)
       if (!startResult.success) {
         setStatus({ text: startResult.error || t('recording.startFailed'), type: 'error' })
         return
       }
 
-      const desktopStream = await (navigator.mediaDevices as any).getUserMedia({
-        audio: false,
-        video: {
-          mandatory: {
-            chromeMediaSource: 'desktop',
-            chromeMediaSourceId: source.id
-          }
+      // Try to grab desktop audio (Windows loopback) alongside video when
+      // the user opted in. Fails silently if the platform doesn't expose it.
+      let desktopStream: MediaStream
+      if (useSystemAudio) {
+        try {
+          desktopStream = await (navigator.mediaDevices as any).getUserMedia({
+            audio: {
+              mandatory: {
+                chromeMediaSource: 'desktop'
+              }
+            },
+            video: {
+              mandatory: {
+                chromeMediaSource: 'desktop',
+                chromeMediaSourceId: source.id
+              }
+            }
+          })
+        } catch {
+          // Loopback not available — fall back to video-only desktop stream
+          desktopStream = await (navigator.mediaDevices as any).getUserMedia({
+            audio: false,
+            video: {
+              mandatory: {
+                chromeMediaSource: 'desktop',
+                chromeMediaSourceId: source.id
+              }
+            }
+          })
+          setStatus({ text: t('recording.systemAudioUnavailable'), type: 'info' })
         }
-      })
+      } else {
+        desktopStream = await (navigator.mediaDevices as any).getUserMedia({
+          audio: false,
+          video: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: source.id
+            }
+          }
+        })
+      }
 
       // Build the stream to record (full screen or cropped region)
       const cropRegion = region || cropRegionRef.current
@@ -238,16 +303,39 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
         canvas.height = ch
         const ctx = canvas.getContext('2d')!
 
-        // Start frame loop
-        const drawFrame = () => {
+        // Start frame loop. requestAnimationFrame is throttled or paused
+        // when the document is hidden; in that case we fall back to a low-
+        // rate setInterval so the recording keeps producing frames at a
+        // steady cadence even with the app minimized.
+        let intervalHandle: ReturnType<typeof setInterval> | null = null
+        const drawOnce = () => {
           try {
             ctx.drawImage(video, sx, sy, cw, ch, 0, 0, cw, ch)
           } catch { /* video not ready yet */ }
+        }
+        const drawFrame = () => {
+          drawOnce()
           cropAnimRef.current = requestAnimationFrame(drawFrame)
         }
+        const onVisibility = () => {
+          if (document.hidden) {
+            if (cropAnimRef.current) cancelAnimationFrame(cropAnimRef.current)
+            cropAnimRef.current = null
+            if (!intervalHandle) {
+              intervalHandle = setInterval(drawOnce, Math.round(1000 / settings.videoFramerate))
+            }
+          } else {
+            if (intervalHandle) { clearInterval(intervalHandle); intervalHandle = null }
+            if (!cropAnimRef.current) drawFrame()
+          }
+        }
+        document.addEventListener('visibilitychange', onVisibility)
+        // Stash on the video element so cleanupStreams can detach it later
+        ;(video as HTMLVideoElement & { _onVis?: () => void; _interval?: ReturnType<typeof setInterval> | null })._onVis = onVisibility
+        ;(video as HTMLVideoElement & { _interval?: ReturnType<typeof setInterval> | null })._interval = intervalHandle
         drawFrame()
 
-        recordStream = canvas.captureStream(30)
+        recordStream = canvas.captureStream(settings.videoFramerate)
         cropStreamRef.current = recordStream
       } else {
         recordStream = desktopStream
@@ -255,6 +343,12 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
 
       const combinedStream = new MediaStream()
       recordStream.getVideoTracks().forEach((t: MediaStreamTrack) => combinedStream.addTrack(t))
+
+      // Carry the desktop audio track when system-audio capture succeeded
+      // (only present on the original desktopStream, not on the cropped one).
+      if (useSystemAudio) {
+        desktopStream.getAudioTracks().forEach(tr => combinedStream.addTrack(tr))
+      }
 
       if (useMic) {
         try {
@@ -269,7 +363,8 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
 
       // Keep original desktop stream ref for cleanup
       streamRef.current = desktopStream
-      chunksRef.current = []
+      stopGuardRef.current = false
+      pendingWritesCountRef.current = 0
 
       // Initialize temp file for crash-safe recording
       const initResult = await window.electronAPI.recording.initTemp(mimeType, source.name)
@@ -281,23 +376,26 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
 
       const recorder = new MediaRecorder(combinedStream, {
         mimeType,
-        videoBitsPerSecond: 2_500_000
+        videoBitsPerSecond: VIDEO_BITRATE[settings.videoQuality],
+        audioBitsPerSecond: 128_000
       })
 
       recorder.ondataavailable = (e: BlobEvent) => {
-        if (e.data.size > 0) {
-          chunksRef.current.push(e.data)
-          // Send chunk to main process for incremental disk write
-          const writePromise = (async () => {
-            try {
-              const buffer = await e.data.arrayBuffer()
-              await window.electronAPI.recording.writeChunk(buffer)
-            } catch (err) {
-              console.error('Failed to write chunk to disk:', err)
-            }
-          })()
-          pendingWritesRef.current.push(writePromise)
-        }
+        if (e.data.size === 0) return
+        // Stream chunks straight to disk via main; do NOT accumulate them
+        // in renderer memory \u2014 for hour-long recordings that would balloon
+        // RAM by hundreds of MB while the same data is also on disk.
+        pendingWritesCountRef.current++
+        ;(async () => {
+          try {
+            const buffer = await e.data.arrayBuffer()
+            await window.electronAPI.recording.writeChunk(buffer)
+          } catch (err) {
+            console.error('Failed to write chunk to disk:', err)
+          } finally {
+            pendingWritesCountRef.current = Math.max(0, pendingWritesCountRef.current - 1)
+          }
+        })()
       }
 
       recorder.onerror = () => {
@@ -341,6 +439,10 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
     if (!recorder) return
 
     if (recorder.state === 'recording') {
+      // Flush the in-flight timeslice so the on-disk file ends at the
+      // pause boundary instead of carrying half-buffered frames into the
+      // next resume.
+      try { recorder.requestData() } catch { /* not always supported */ }
       recorder.pause()
       isPausedRef.current = true
       setIsPaused(true)
@@ -357,8 +459,14 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
       cancelAnimationFrame(cropAnimRef.current)
       cropAnimRef.current = null
     }
-    // Stop crop video element
+    // Stop crop video element + detach visibility listener / interval
     if (cropVideoRef.current) {
+      const v = cropVideoRef.current as HTMLVideoElement & {
+        _onVis?: () => void
+        _interval?: ReturnType<typeof setInterval> | null
+      }
+      if (v._onVis) document.removeEventListener('visibilitychange', v._onVis)
+      if (v._interval) clearInterval(v._interval)
       cropVideoRef.current.pause()
       cropVideoRef.current.srcObject = null
       cropVideoRef.current = null
@@ -384,6 +492,13 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
   }
 
   const handleStopRecording = async () => {
+    // Guard against double-stop: stop() may be triggered from compact bar,
+    // panel button, hotkey, and tray simultaneously. The second call is a
+    // no-op on MediaRecorder but the second `await Promise(onstop)` would
+    // hang forever because onstop only fires once per stop.
+    if (stopGuardRef.current) return
+    stopGuardRef.current = true
+
     const recorder = mediaRecorderRef.current
     if (!recorder || recorder.state === 'inactive') {
       setPhase('pick')
@@ -397,19 +512,26 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
 
     await window.electronAPI.recording.stop()
 
-    // Wait for final dataavailable + onstop
+    // Wait for final dataavailable + onstop, with a bounded timeout so a
+    // misbehaving recorder can't deadlock the UI.
     await new Promise<void>(resolve => {
-      recorder.onstop = () => resolve()
-      recorder.stop()
+      let resolved = false
+      const done = () => { if (!resolved) { resolved = true; resolve() } }
+      recorder.onstop = done
+      try { recorder.stop() } catch { done() }
+      setTimeout(done, 5000)
     })
 
-    // Wait for all pending chunk writes to complete before finalizing
-    await Promise.all(pendingWritesRef.current)
-    pendingWritesRef.current = []
+    // Drain pending chunk writes (also bounded — disk could be slow but
+    // we shouldn't wait forever).
+    const drainStart = Date.now()
+    while (pendingWritesCountRef.current > 0 && Date.now() - drainStart < 5000) {
+      await new Promise(r => setTimeout(r, 50))
+    }
+    pendingWritesCountRef.current = 0
 
     cleanupStreams()
     mediaRecorderRef.current = null
-    chunksRef.current = []
 
     // Finalize: main process closes temp file and shows save dialog
     try {

@@ -2,7 +2,7 @@
 process.stdout?.on?.('error', () => {})
 process.stderr?.on?.('error', () => {})
 
-import { app, BrowserWindow, protocol, net } from 'electron'
+import { app, BrowserWindow, protocol, net, screen } from 'electron'
 import { pathToFileURL } from 'url'
 import { createMainWindow, getMainWindow, registerMainWindowIPC } from './windows/main-window'
 import { createOverlayWindow } from './windows/overlay-window'
@@ -74,9 +74,17 @@ app.whenReady().then(() => {
     }
 
     if (quickRecord) {
-      // Quick record: auto-select screen, start without showing UI
+      // Quick record: auto-select the screen the cursor is on so multi-
+      // monitor users don't always end up recording the primary display.
       const sources = await getAvailableSources()
-      const screenSource = sources.find(s => s.id.startsWith('screen:'))
+      const screenSources = sources.filter(s => s.id.startsWith('screen:'))
+      const cursorPoint = screen.getCursorScreenPoint()
+      const display = screen.getDisplayNearestPoint(cursorPoint)
+      const displayId = display.id.toString()
+      const screenSource =
+        screenSources.find(s => s.id === `screen:${displayId}:0`)
+        ?? screenSources.find(s => s.id.includes(`:${displayId}:`))
+        ?? screenSources[0]
       if (!screenSource) return
 
       const win = createMainWindow()

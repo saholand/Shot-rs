@@ -3,10 +3,48 @@ import { join } from 'path'
 import {
   existsSync, unlinkSync, mkdirSync,
   createWriteStream, readdirSync, statSync,
-  readFileSync, writeFileSync
+  readFileSync, writeFileSync, openSync, readSync, closeSync
 } from 'fs'
 import type { WriteStream } from 'fs'
 import type { RecoverableRecording } from '../../shared/types/ipc'
+
+/**
+ * Read the first 4 bytes of `filePath` and return them. Used to validate
+ * a recovery file's container header before offering it to the user.
+ */
+function readMagicBytes(filePath: string): Buffer | null {
+  try {
+    const fd = openSync(filePath, 'r')
+    const buf = Buffer.alloc(4)
+    const n = readSync(fd, buf, 0, 4, 0)
+    closeSync(fd)
+    if (n < 4) return null
+    return buf
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Heuristic check that the file looks like a valid WebM (EBML 1A 45 DF A3)
+ * or MP4 (...ftyp at offset 4). A non-empty file that doesn't pass either
+ * check is almost certainly broken (e.g., disk full, crash before header).
+ */
+function looksLikeVideo(filePath: string): boolean {
+  const magic = readMagicBytes(filePath)
+  if (!magic) return false
+  // WebM / Matroska
+  if (magic[0] === 0x1A && magic[1] === 0x45 && magic[2] === 0xDF && magic[3] === 0xA3) return true
+  // MP4 — first 4 bytes are box size, next 4 are 'ftyp'. Read more if needed.
+  try {
+    const fd = openSync(filePath, 'r')
+    const buf = Buffer.alloc(8)
+    readSync(fd, buf, 0, 8, 0)
+    closeSync(fd)
+    if (buf.slice(4, 8).toString('ascii') === 'ftyp') return true
+  } catch { /* ignore */ }
+  return false
+}
 
 const TEMP_DIR_NAME = 'recording-temp'
 const TEMP_PREFIX = 'rec-'
@@ -141,6 +179,23 @@ export function checkForRecovery(): RecoverableRecording[] {
       if (stat.size === 0) {
         unlinkSync(videoPath)
         unlinkSync(metaPath)
+        continue
+      }
+
+      // Skip files that don't have a valid video container header. Better
+      // to silently drop a corrupted recovery than to hand the user a
+      // broken file labelled "recovered recording".
+      if (!looksLikeVideo(videoPath)) {
+        try { unlinkSync(videoPath) } catch { /* ignore */ }
+        try { unlinkSync(metaPath) } catch { /* ignore */ }
+        continue
+      }
+
+      // Skip suspiciously small files (< 16 KB) — usually the recorder
+      // wrote a header and crashed before any frame data landed.
+      if (stat.size < 16 * 1024) {
+        try { unlinkSync(videoPath) } catch { /* ignore */ }
+        try { unlinkSync(metaPath) } catch { /* ignore */ }
         continue
       }
 

@@ -55,6 +55,7 @@ export function OverlayApp() {
   const [cursorInWindow, setCursorInWindow] = useState(false)
   // Magnifier visibility — driven by user setting + a Shift-held override
   const [magnifierSetting, setMagnifierSetting] = useState(false)
+  const [magnifierZoom, setMagnifierZoom] = useState<'low' | 'medium' | 'high'>('medium')
   const [shiftHeld, setShiftHeld] = useState(false)
 
   // Resize handle drag state
@@ -108,6 +109,9 @@ export function OverlayApp() {
     window.overlayAPI.onScreenBounds((bounds) => {
       if (typeof bounds.magnifierEnabled === 'boolean') {
         setMagnifierSetting(bounds.magnifierEnabled)
+      }
+      if (bounds.magnifierZoom) {
+        setMagnifierZoom(bounds.magnifierZoom)
       }
     })
   }, [])
@@ -466,6 +470,7 @@ export function OverlayApp() {
           cursorY={cursorPos.y}
           visible={cursorInWindow}
           sizeText={sizeText}
+          zoom={magnifierZoom}
         />
       )}
     </div>

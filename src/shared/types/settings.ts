@@ -1,3 +1,24 @@
+export type VideoFormat = 'webm' | 'mp4'
+export type VideoQuality = 'low' | 'medium' | 'high' | 'ultra'
+export type VideoFramerate = 24 | 30 | 60
+export type MagnifierZoom = 'low' | 'medium' | 'high'
+
+/** Bitrate (bps) for each quality preset. */
+export const VIDEO_BITRATE: Record<VideoQuality, number> = {
+  low: 1_500_000,
+  medium: 2_500_000,
+  high: 5_000_000,
+  ultra: 8_000_000
+}
+
+/** Pixel-radius sampled around the cursor for the magnifier loupe.
+ *  Lower radius = more zoom = less context. */
+export const MAGNIFIER_RADIUS: Record<MagnifierZoom, number> = {
+  low: 18,
+  medium: 14,
+  high: 10
+}
+
 export interface AppSettings {
   closeToTray: boolean
   quickRecordEnabled: boolean
@@ -13,6 +34,15 @@ export interface AppSettings {
   /** Magnifier loupe shown during selection. Off by default; user can
    *  override on-the-fly by holding Shift while selecting. */
   magnifierEnabled: boolean
+  magnifierZoom: MagnifierZoom
+
+  // ── Recording params ──
+  videoFormat: VideoFormat
+  videoQuality: VideoQuality
+  videoFramerate: VideoFramerate
+  /** Capture system audio (desktop loopback) alongside mic. Windows-only;
+   *  silently no-ops on platforms that don't expose loopback. */
+  recordSystemAudio: boolean
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -27,7 +57,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
   annotationHotkey: 'CommandOrControl+Shift+D',
   ocrHotkey: 'CommandOrControl+Shift+O',
   language: 'tr',
-  magnifierEnabled: false
+  magnifierEnabled: false,
+  magnifierZoom: 'medium',
+  videoFormat: 'webm',
+  videoQuality: 'medium',
+  videoFramerate: 30,
+  recordSystemAudio: false
 }
 
 /**

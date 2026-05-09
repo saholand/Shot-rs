@@ -26,6 +26,8 @@ export interface ScreenBounds {
   scaleFactor: number
   /** Whether the user has the selection-phase magnifier enabled in settings. */
   magnifierEnabled?: boolean
+  /** Magnifier zoom preset (radius of source pixels sampled). */
+  magnifierZoom?: 'low' | 'medium' | 'high'
 }
 
 /**

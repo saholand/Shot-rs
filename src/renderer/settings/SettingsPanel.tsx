@@ -265,6 +265,88 @@ export function SettingsPanel({ onBack }: Props) {
           </label>
         </div>
 
+        <div className="settings-item">
+          <div className="settings-item-info">
+            <span className="settings-item-label">{t('settings.magnifierZoom')}</span>
+            <span className="settings-item-desc">{t('settings.magnifierZoomDesc')}</span>
+          </div>
+          <select
+            className="settings-select"
+            value={settings.magnifierZoom}
+            onChange={(e) => update('magnifierZoom', e.target.value as 'low' | 'medium' | 'high')}
+          >
+            <option value="low">{t('settings.zoomLow')}</option>
+            <option value="medium">{t('settings.zoomMed')}</option>
+            <option value="high">{t('settings.zoomHigh')}</option>
+          </select>
+        </div>
+
+        {/* ── Recording ── */}
+        <SectionTitle>{t('settings.recordingSection')}</SectionTitle>
+
+        <div className="settings-item">
+          <div className="settings-item-info">
+            <span className="settings-item-label">{t('settings.videoFormat')}</span>
+            <span className="settings-item-desc">{t('settings.videoFormatDesc')}</span>
+          </div>
+          <select
+            className="settings-select"
+            value={settings.videoFormat}
+            onChange={(e) => update('videoFormat', e.target.value as 'webm' | 'mp4')}
+          >
+            <option value="webm">WebM</option>
+            <option value="mp4">MP4 (H.264)</option>
+          </select>
+        </div>
+
+        <div className="settings-item">
+          <div className="settings-item-info">
+            <span className="settings-item-label">{t('settings.videoQuality')}</span>
+            <span className="settings-item-desc">{t('settings.videoQualityDesc')}</span>
+          </div>
+          <select
+            className="settings-select"
+            value={settings.videoQuality}
+            onChange={(e) => update('videoQuality', e.target.value as 'low' | 'medium' | 'high' | 'ultra')}
+          >
+            <option value="low">{t('settings.qualityLow')} (1.5 Mbps)</option>
+            <option value="medium">{t('settings.qualityMed')} (2.5 Mbps)</option>
+            <option value="high">{t('settings.qualityHigh')} (5 Mbps)</option>
+            <option value="ultra">{t('settings.qualityUltra')} (8 Mbps)</option>
+          </select>
+        </div>
+
+        <div className="settings-item">
+          <div className="settings-item-info">
+            <span className="settings-item-label">{t('settings.videoFramerate')}</span>
+            <span className="settings-item-desc">{t('settings.videoFramerateDesc')}</span>
+          </div>
+          <select
+            className="settings-select"
+            value={settings.videoFramerate}
+            onChange={(e) => update('videoFramerate', parseInt(e.target.value, 10) as 24 | 30 | 60)}
+          >
+            <option value="24">24 fps</option>
+            <option value="30">30 fps</option>
+            <option value="60">60 fps</option>
+          </select>
+        </div>
+
+        <div className="settings-item">
+          <div className="settings-item-info">
+            <span className="settings-item-label">{t('settings.systemAudio')}</span>
+            <span className="settings-item-desc">{t('settings.systemAudioDesc')}</span>
+          </div>
+          <label className="settings-toggle">
+            <input
+              type="checkbox"
+              checked={settings.recordSystemAudio}
+              onChange={(e) => update('recordSystemAudio', e.target.checked)}
+            />
+            <span className="settings-toggle-slider" />
+          </label>
+        </div>
+
         {/* ── File Settings ── */}
         <SectionTitle>{t('settings.fileSettings')}</SectionTitle>
 

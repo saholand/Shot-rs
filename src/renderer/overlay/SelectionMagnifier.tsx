@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { MAGNIFIER_RADIUS, type MagnifierZoom } from '../../shared/types/settings'
 
 interface SelectionMagnifierProps {
   /** Pre-captured screen image at native pixels. */
@@ -12,13 +13,11 @@ interface SelectionMagnifierProps {
   visible: boolean
   /** Live size info while user is dragging — shown beneath the loupe. */
   sizeText?: string
+  /** Zoom preset; controls how many source pixels are sampled. */
+  zoom?: MagnifierZoom
 }
 
 const LOUPE_SIZE = 104
-// Number of source pixels (in either direction) sampled around the cursor.
-// 14 → 29×29 source window → ~3.6× zoom, leaves enough context to find your
-// way around the cursor. Higher value = less aggressive zoom.
-const ZOOM_RADIUS = 14
 const VIEWPORT_MARGIN = 16
 
 /**
@@ -30,9 +29,10 @@ const VIEWPORT_MARGIN = 16
  * doesn't cover the area the user is actively selecting.
  */
 export function SelectionMagnifier({
-  bgImage, scaleFactor, cursorX, cursorY, visible, sizeText
+  bgImage, scaleFactor, cursorX, cursorY, visible, sizeText, zoom = 'medium'
 }: SelectionMagnifierProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const radius = MAGNIFIER_RADIUS[zoom]
 
   useEffect(() => {
     if (!visible || !bgImage) return
@@ -44,7 +44,7 @@ export function SelectionMagnifier({
     // Convert window-local DIPs to source-image native pixels
     const px = Math.round(cursorX * scaleFactor)
     const py = Math.round(cursorY * scaleFactor)
-    const r = ZOOM_RADIUS
+    const r = radius
 
     ctx.imageSmoothingEnabled = false
     ctx.clearRect(0, 0, LOUPE_SIZE, LOUPE_SIZE)
@@ -83,7 +83,7 @@ export function SelectionMagnifier({
       Math.ceil(pixelSize),
       Math.ceil(pixelSize)
     )
-  }, [bgImage, scaleFactor, cursorX, cursorY, visible])
+  }, [bgImage, scaleFactor, cursorX, cursorY, visible, radius])
 
   if (!visible || !bgImage) return null
 
