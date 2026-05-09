@@ -178,12 +178,16 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
   // then pan-and-zoom toward that point with a 420ms cubic ease-out.
   // level === 1.0 → smooth reset back to baseRect's center.
   useEffect(() => {
-    if (phase !== 'recording' || !settings.zoomEnabled) return
+    if (phase !== 'recording') return
 
     const onZoomGo = (payload: { x: number; y: number; level: number }) => {
       if (isPausedRef.current) return
       const z = zoomStateRef.current
-      if (!z) return
+      if (!z) {
+        console.warn('[RecordingPanel] zoom-go received but zoomStateRef is null')
+        return
+      }
+      console.log('[RecordingPanel] zoom-go', payload)
       const sf = cropScaleFactorRef.current || window.devicePixelRatio || 1
       z.fromLevel = z.level
       z.fromCenterX = z.centerX
@@ -205,7 +209,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
 
     window.electronAPI.recording.onZoomGo(onZoomGo)
     return () => window.electronAPI.recording.removeZoomGoListener()
-  }, [phase, settings.zoomEnabled])
+  }, [phase])
 
   // Listen for region selection result
   useEffect(() => {
@@ -330,15 +334,17 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
         })
       }
 
-      // ── Decide whether we need the canvas compositing pipeline ─────
-      // Canvas runs whenever:
-      //   - user picked a region (so we must crop),
-      //   - click-to-zoom is enabled (manual zoom transform per frame).
-      // Webcam is NOT canvas-composed — it lives in its own draggable
-      // window that the OS desktopCapturer picks up alongside the rest
-      // of the screen.
+      // ── Canvas compositing pipeline ────────────────────────────────
+      // Always on. The Zoom tool in the live toolbar can be activated
+      // mid-recording, so the pipeline must already be running — we
+      // can't retroactively switch from desktopStream to canvas without
+      // restarting MediaRecorder. The CPU overhead (a drawImage per
+      // frame from <video> to <canvas>) is small and matches what
+      // Cap/Loom do unconditionally. Webcam is NOT canvas-composed —
+      // it lives in its own draggable window that desktopCapturer picks
+      // up alongside everything else.
       const cropRegion = region || cropRegionRef.current
-      const needsCompositing = !!cropRegion || settings.zoomEnabled
+      const needsCompositing = true
       let recordStream: MediaStream
 
       if (needsCompositing) {
@@ -376,17 +382,17 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
         canvas.height = baseRect.h
         const ctx = canvas.getContext('2d')!
 
-        // Initialize zoom state (level=1, centered on baseRect)
-        if (settings.zoomEnabled) {
-          const cx = baseRect.sx + baseRect.w / 2
-          const cy = baseRect.sy + baseRect.h / 2
-          zoomStateRef.current = {
-            active: false,
-            level: 1, centerX: cx, centerY: cy,
-            fromLevel: 1, fromCenterX: cx, fromCenterY: cy,
-            toLevel: 1, toCenterX: cx, toCenterY: cy,
-            animStart: 0, animDuration: 0
-          }
+        // Initialize zoom state (level=1, centered on baseRect). Always
+        // populated so the Zoom tool can drive transforms without the
+        // user pre-enabling anything in settings.
+        const cx = baseRect.sx + baseRect.w / 2
+        const cy = baseRect.sy + baseRect.h / 2
+        zoomStateRef.current = {
+          active: false,
+          level: 1, centerX: cx, centerY: cy,
+          fromLevel: 1, fromCenterX: cx, fromCenterY: cy,
+          toLevel: 1, toCenterX: cx, toCenterY: cy,
+          animStart: 0, animDuration: 0
         }
 
         let intervalHandle: ReturnType<typeof setInterval> | null = null

@@ -466,38 +466,21 @@ export function SettingsPanel({ onBack }: Props) {
 
         <div className="settings-item">
           <div className="settings-item-info">
-            <span className="settings-item-label">{t('settings.clickZoom')}</span>
-            <span className="settings-item-desc">{t('settings.clickZoomDesc')}</span>
+            <span className="settings-item-label">{t('settings.zoomLevel')}</span>
+            <span className="settings-item-desc">{t('settings.zoomLevelDesc')}</span>
           </div>
-          <label className="settings-toggle">
-            <input
-              type="checkbox"
-              checked={settings.zoomEnabled}
-              onChange={(e) => update('zoomEnabled', e.target.checked)}
-            />
-            <span className="settings-toggle-slider" />
-          </label>
+          <select
+            className="settings-select"
+            value={settings.zoomDefaultLevel}
+            onChange={(e) => update('zoomDefaultLevel', parseFloat(e.target.value))}
+          >
+            <option value="1.5">1.5×</option>
+            <option value="2">2×</option>
+            <option value="2.5">2.5×</option>
+            <option value="3">3×</option>
+            <option value="4">4×</option>
+          </select>
         </div>
-
-        {settings.zoomEnabled && (
-          <div className="settings-item">
-            <div className="settings-item-info">
-              <span className="settings-item-label">{t('settings.zoomLevel')}</span>
-              <span className="settings-item-desc">{t('settings.zoomLevelDesc')}</span>
-            </div>
-            <select
-              className="settings-select"
-              value={settings.zoomDefaultLevel}
-              onChange={(e) => update('zoomDefaultLevel', parseFloat(e.target.value))}
-            >
-              <option value="1.5">1.5×</option>
-              <option value="2">2×</option>
-              <option value="2.5">2.5×</option>
-              <option value="3">3×</option>
-              <option value="4">4×</option>
-            </select>
-          </div>
-        )}
 
         {/* ── File Settings ── */}
         <SectionTitle>{t('settings.fileSettings')}</SectionTitle>

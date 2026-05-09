@@ -81,12 +81,9 @@ export interface AppSettings {
   webcamSize: 'small' | 'medium' | 'large'
 
   // ── Click-to-zoom (toolbar tool) ──
-  /** Always-on flag — when true, the canvas pipeline is enabled so the
-   *  zoom tool's clicks have a transform target. Off by default to keep
-   *  the fast path (direct desktopStream → MediaRecorder) for users who
-   *  don't use zoom. */
-  zoomEnabled: boolean
-  /** Default level the toolbar starts at when the user enters zoom mode. */
+  /** Default level the toolbar starts at when the user enters zoom mode.
+   *  The tool itself is always available — there's no on/off toggle
+   *  because the canvas pipeline runs unconditionally. */
   zoomDefaultLevel: number
 }
 
@@ -123,7 +120,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   webcamShape: 'circle',
   webcamPosition: 'br',
   webcamSize: 'medium',
-  zoomEnabled: false,
   zoomDefaultLevel: 2
 }
 
