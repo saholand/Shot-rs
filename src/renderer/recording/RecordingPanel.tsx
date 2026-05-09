@@ -271,15 +271,18 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
         })
       }
 
-      // Build the stream to record (full screen or cropped region)
+      // ── Decide whether we need the canvas compositing pipeline ─────
+      // Canvas runs whenever:
+      //   - user picked a region (so we must crop),
+      //   - any future feature that draws extra layers (webcam PIP, zoom).
+      // When none of those are on, fall through the fast path that feeds
+      // the desktop track straight into MediaRecorder (no extra CPU).
       const cropRegion = region || cropRegionRef.current
+      const needsCompositing = !!cropRegion
       let recordStream: MediaStream
 
-      if (cropRegion) {
-        // Canvas cropping pipeline: crop each frame to the selected region.
-        // The desktop video stream is delivered at the source display's
-        // PHYSICAL pixel resolution, not at the recording renderer's DPR.
-        // Use the scale factor passed in from main.
+      if (needsCompositing) {
+        // Source DPI scale factor (physical pixels of source video).
         const sf = displayScaleFactor || cropScaleFactorRef.current || window.devicePixelRatio || 1
 
         const video = document.createElement('video')
@@ -293,23 +296,30 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
         })
         await video.play().catch(() => { /* autoplay may need a tick */ })
 
-        const vw = video.videoWidth || Math.round(cropRegion.width * sf)
-        const vh = video.videoHeight || Math.round(cropRegion.height * sf)
+        const vw = video.videoWidth || (cropRegion ? Math.round(cropRegion.width * sf) : 1920)
+        const vh = video.videoHeight || (cropRegion ? Math.round(cropRegion.height * sf) : 1080)
 
-        const sx = Math.max(0, Math.round(cropRegion.x * sf))
-        const sy = Math.max(0, Math.round(cropRegion.y * sf))
-        const cw = Math.max(1, Math.min(Math.round(cropRegion.width * sf), vw - sx))
-        const ch = Math.max(1, Math.min(Math.round(cropRegion.height * sf), vh - sy))
+        // Base rect on the source video — region rect when cropping, the
+        // full frame otherwise. Future overlays (webcam, zoom) draw on
+        // top of whatever this rect produces.
+        const baseRect = cropRegion
+          ? {
+              sx: Math.max(0, Math.round(cropRegion.x * sf)),
+              sy: Math.max(0, Math.round(cropRegion.y * sf)),
+              w: Math.max(1, Math.min(Math.round(cropRegion.width * sf), vw - Math.max(0, Math.round(cropRegion.x * sf)))),
+              h: Math.max(1, Math.min(Math.round(cropRegion.height * sf), vh - Math.max(0, Math.round(cropRegion.y * sf))))
+            }
+          : { sx: 0, sy: 0, w: vw, h: vh }
 
         const canvas = document.createElement('canvas')
-        canvas.width = cw
-        canvas.height = ch
+        canvas.width = baseRect.w
+        canvas.height = baseRect.h
         const ctx = canvas.getContext('2d')!
 
         let intervalHandle: ReturnType<typeof setInterval> | null = null
         const drawOnce = () => {
           try {
-            ctx.drawImage(video, sx, sy, cw, ch, 0, 0, cw, ch)
+            ctx.drawImage(video, baseRect.sx, baseRect.sy, baseRect.w, baseRect.h, 0, 0, baseRect.w, baseRect.h)
           } catch { /* video not ready */ }
         }
         const drawFrame = () => {
