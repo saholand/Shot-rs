@@ -239,6 +239,9 @@ const webcamAPI = {
   setBounds: (b: { x: number; y: number; w: number; h: number }) => {
     ipcRenderer.send(IPC_CHANNELS.WEBCAM_SET_BOUNDS, b)
   },
+  commitBounds: () => {
+    ipcRenderer.send(IPC_CHANNELS.WEBCAM_COMMIT_BOUNDS)
+  },
   getBounds: () => ipcRenderer.invoke(IPC_CHANNELS.WEBCAM_GET_BOUNDS) as Promise<{ x: number; y: number; w: number; h: number } | null>
 }
 

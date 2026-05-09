@@ -84,10 +84,9 @@ export function WebcamApp() {
   }, [config.deviceId])
 
   // ── Resize handling ────────────────────────────────────────────────
-  // Each edge handle, on pointerdown, captures starting bounds and the
-  // pointer; on pointermove computes new bounds and pushes via IPC. The
-  // BrowserWindow itself is non-resizable (resizable: false in main), so
-  // setBounds is the single source of truth.
+  // Same rAF-throttle + commit-on-up pattern as drag. pointermove can
+  // fire at 1000Hz on gaming mice; we coalesce into one setBounds per
+  // animation frame and only persist once on pointerup.
   const startResize = (edge: Edge) => async (e: React.PointerEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -99,6 +98,15 @@ export function WebcamApp() {
     const startX = e.screenX
     const startY = e.screenY
 
+    let pending: { x: number; y: number; w: number; h: number } | null = null
+    let scheduled = false
+    const flush = () => {
+      scheduled = false
+      if (pending) {
+        window.webcamAPI.setBounds(pending)
+        pending = null
+      }
+    }
     const onMove = (ev: PointerEvent) => {
       const dx = ev.screenX - startX
       const dy = ev.screenY - startY
@@ -107,7 +115,6 @@ export function WebcamApp() {
       if (edge.includes('e')) { w += dx }
       if (edge.includes('n')) { y += dy; h -= dy }
       if (edge.includes('s')) { h += dy }
-      // Keep min size; if user drags through, anchor opposite edge
       if (w < 100) {
         if (edge.includes('w')) x = initial.x + initial.w - 100
         w = 100
@@ -116,9 +123,18 @@ export function WebcamApp() {
         if (edge.includes('n')) y = initial.y + initial.h - 100
         h = 100
       }
-      window.webcamAPI.setBounds({ x, y, w, h })
+      pending = { x, y, w, h }
+      if (!scheduled) {
+        scheduled = true
+        requestAnimationFrame(flush)
+      }
     }
     const onUp = () => {
+      if (pending) {
+        window.webcamAPI.setBounds(pending)
+        pending = null
+      }
+      window.webcamAPI.commitBounds()
       target.releasePointerCapture(e.pointerId)
       target.removeEventListener('pointermove', onMove)
       target.removeEventListener('pointerup', onUp)
@@ -131,9 +147,10 @@ export function WebcamApp() {
 
   // ── Drag handling ──────────────────────────────────────────────────
   // Custom pointer-based drag — `-webkit-app-region: drag` is unreliable
-  // on Windows transparent + frame:false windows, so we implement it
-  // ourselves the same way resize works: capture pointer, listen to
-  // pointermove, push setBounds to main each frame.
+  // on Windows transparent + frame:false windows. Pointermove fires up
+  // to 1000Hz on gaming mice and each Win32 SetWindowPos is slow, so we
+  // throttle to one update per animation frame and only commit (persist)
+  // on pointerup.
   const startDrag = async (e: React.PointerEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -145,17 +162,33 @@ export function WebcamApp() {
     const startX = e.screenX
     const startY = e.screenY
 
+    let pending: { x: number; y: number; w: number; h: number } | null = null
+    let scheduled = false
+    const flush = () => {
+      scheduled = false
+      if (pending) {
+        window.webcamAPI.setBounds(pending)
+        pending = null
+      }
+    }
     const onMove = (ev: PointerEvent) => {
-      const dx = ev.screenX - startX
-      const dy = ev.screenY - startY
-      window.webcamAPI.setBounds({
-        x: initial.x + dx,
-        y: initial.y + dy,
-        w: initial.w,
-        h: initial.h
-      })
+      pending = {
+        x: initial.x + (ev.screenX - startX),
+        y: initial.y + (ev.screenY - startY),
+        w: initial.w, h: initial.h
+      }
+      if (!scheduled) {
+        scheduled = true
+        requestAnimationFrame(flush)
+      }
     }
     const onUp = () => {
+      // Flush whatever's queued, then commit (persist).
+      if (pending) {
+        window.webcamAPI.setBounds(pending)
+        pending = null
+      }
+      window.webcamAPI.commitBounds()
       target.releasePointerCapture(e.pointerId)
       target.removeEventListener('pointermove', onMove)
       target.removeEventListener('pointerup', onUp)

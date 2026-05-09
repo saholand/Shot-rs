@@ -107,7 +107,13 @@ export function pushWebcamConfig(args: InitArgs): void {
   }
 }
 
-/** IPC handlers for drag-resize from the renderer. */
+/** IPC handlers for drag-resize from the renderer.
+ *
+ * Hot path (drag/resize move): WEBCAM_SET_BOUNDS only repositions the
+ * window — no disk write. The renderer is already rAF-throttled so this
+ * fires at most ~60Hz. Settings persistence happens once on pointerup
+ * via WEBCAM_COMMIT_BOUNDS.
+ */
 export function registerWebcamWindowIPC(): void {
   ipcMain.on(IPC_CHANNELS.WEBCAM_SET_BOUNDS, (_event, bounds: { x: number; y: number; w: number; h: number }) => {
     if (!webcamWindow || webcamWindow.isDestroyed()) return
@@ -119,9 +125,13 @@ export function registerWebcamWindowIPC(): void {
       width: w,
       height: h
     })
-    // Persist
+  })
+
+  ipcMain.on(IPC_CHANNELS.WEBCAM_COMMIT_BOUNDS, () => {
+    if (!webcamWindow || webcamWindow.isDestroyed()) return
+    const b = webcamWindow.getBounds()
     const s = getSettings()
-    saveSettings({ ...s, webcamBounds: { x: Math.round(bounds.x), y: Math.round(bounds.y), w, h } })
+    saveSettings({ ...s, webcamBounds: { x: b.x, y: b.y, w: b.width, h: b.height } })
   })
 
   ipcMain.handle(IPC_CHANNELS.WEBCAM_GET_BOUNDS, () => {

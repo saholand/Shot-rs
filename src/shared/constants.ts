@@ -93,6 +93,7 @@ export const IPC_CHANNELS = {
   WEBCAM_TOGGLE: 'webcam:toggle',
   WEBCAM_CONFIG: 'webcam:config',
   WEBCAM_SET_BOUNDS: 'webcam:set-bounds',
+  WEBCAM_COMMIT_BOUNDS: 'webcam:commit-bounds',
   WEBCAM_GET_BOUNDS: 'webcam:get-bounds',
 
   // Region recording

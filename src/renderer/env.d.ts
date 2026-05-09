@@ -26,6 +26,7 @@ interface WebcamAPI {
   onConfig: (callback: (cfg: WebcamConfig) => void) => void
   removeConfigListener: () => void
   setBounds: (b: { x: number; y: number; w: number; h: number }) => void
+  commitBounds: () => void
   getBounds: () => Promise<{ x: number; y: number; w: number; h: number } | null>
 }
 
