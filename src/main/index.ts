@@ -17,6 +17,7 @@ import { registerScreenshotHotkey, registerRecordingHotkey, registerAnnotationHo
 import { startOCRSelection, setOCRWorkerGetter } from './ipc/screenshot-ipc'
 import { toggleAnnotationDrawMode, getAnnotationOverlay, registerAnnotationOverlayIPC } from './windows/annotation-overlay-window'
 import { registerAnnotationToolbarIPC } from './windows/annotation-toolbar-window'
+import { registerWebcamWindowIPC } from './windows/webcam-window'
 import { createTray, destroyTray, updateTrayRecordingState } from './services/tray'
 import { setQuitting } from './services/app-state'
 import { getSetting } from './services/settings-store'
@@ -53,6 +54,7 @@ app.whenReady().then(() => {
   registerMainWindowIPC()
   registerAnnotationOverlayIPC()
   registerAnnotationToolbarIPC()
+  registerWebcamWindowIPC()
 
   createMainWindow()
   createTray()

@@ -71,9 +71,14 @@ export interface AppSettings {
   // ── Webcam PIP ──
   webcamEnabled: boolean
   webcamDeviceId: string | null
+  /** Free-form bounds (in screen pixels) for the webcam preview window.
+   *  null = use a default position/size on first show. */
+  webcamBounds: { x: number; y: number; w: number; h: number } | null
+  webcamShape: 'circle' | 'rounded'
+  // Legacy preset fields kept for migration / quick-select; the bounds
+  // above override them when present.
   webcamPosition: 'tl' | 'tr' | 'bl' | 'br'
   webcamSize: 'small' | 'medium' | 'large'
-  webcamShape: 'circle' | 'rounded'
 
   // ── Click-to-zoom ──
   zoomEnabled: boolean
@@ -110,9 +115,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   cursorSpotlightDim: 'medium',
   webcamEnabled: false,
   webcamDeviceId: null,
+  webcamBounds: null,
+  webcamShape: 'circle',
   webcamPosition: 'br',
   webcamSize: 'medium',
-  webcamShape: 'circle',
   zoomEnabled: false,
   zoomDefaultLevel: 2.5,
   zoomDoubleClickWindowMs: 350

@@ -20,6 +20,15 @@ interface EffectsAPI {
   removeCursorPosListener: () => void
 }
 
+interface WebcamConfig { deviceId: string | null; shape: 'circle' | 'rounded' }
+
+interface WebcamAPI {
+  onConfig: (callback: (cfg: WebcamConfig) => void) => void
+  removeConfigListener: () => void
+  setBounds: (b: { x: number; y: number; w: number; h: number }) => void
+  getBounds: () => Promise<{ x: number; y: number; w: number; h: number } | null>
+}
+
 declare global {
   interface Window {
     electronAPI: ElectronAPI
@@ -27,5 +36,6 @@ declare global {
     annotationOverlayAPI: AnnotationOverlayAPI
     highlighterCursorAPI: HighlighterCursorAPI
     effectsAPI: EffectsAPI
+    webcamAPI: WebcamAPI
   }
 }

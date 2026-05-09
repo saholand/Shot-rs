@@ -160,6 +160,8 @@ export interface ElectronAPI {
     removeZoomWheelListener: () => void
     // Trim editor
     trim: (payload: { inputPath: string; startSec: number; endSec: number }) => Promise<RecordingResult>
+    // Webcam window mid-session toggle
+    toggleWebcam: (enabled: boolean) => void
   }
 
   app: {

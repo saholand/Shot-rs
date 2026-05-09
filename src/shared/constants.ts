@@ -88,6 +88,12 @@ export const IPC_CHANNELS = {
   // Trim editor
   RECORDING_TRIM: 'recording:trim',
 
+  // Webcam preview window
+  WEBCAM_TOGGLE: 'webcam:toggle',
+  WEBCAM_CONFIG: 'webcam:config',
+  WEBCAM_SET_BOUNDS: 'webcam:set-bounds',
+  WEBCAM_GET_BOUNDS: 'webcam:get-bounds',
+
   // Region recording
   RECORDING_SELECT_REGION: 'recording:select-region',
   RECORDING_REGION_SELECTED: 'recording:region-selected',

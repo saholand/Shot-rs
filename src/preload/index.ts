@@ -95,7 +95,8 @@ const api: ElectronAPI = {
     removeZoomWheelListener: () => {
       ipcRenderer.removeAllListeners(IPC_CHANNELS.RECORDING_ZOOM_WHEEL)
     },
-    trim: (payload) => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_TRIM, payload)
+    trim: (payload) => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_TRIM, payload),
+    toggleWebcam: (enabled: boolean) => ipcRenderer.send(IPC_CHANNELS.WEBCAM_TOGGLE, enabled)
   },
   app: {
     onForceMode: (callback) => {
@@ -220,8 +221,24 @@ const effectsAPI = {
   }
 }
 
+interface WebcamConfig { deviceId: string | null; shape: 'circle' | 'rounded' }
+
+const webcamAPI = {
+  onConfig: (callback: (cfg: WebcamConfig) => void) => {
+    ipcRenderer.on(IPC_CHANNELS.WEBCAM_CONFIG, (_e, cfg) => callback(cfg))
+  },
+  removeConfigListener: () => {
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.WEBCAM_CONFIG)
+  },
+  setBounds: (b: { x: number; y: number; w: number; h: number }) => {
+    ipcRenderer.send(IPC_CHANNELS.WEBCAM_SET_BOUNDS, b)
+  },
+  getBounds: () => ipcRenderer.invoke(IPC_CHANNELS.WEBCAM_GET_BOUNDS) as Promise<{ x: number; y: number; w: number; h: number } | null>
+}
+
 contextBridge.exposeInMainWorld('electronAPI', api)
 contextBridge.exposeInMainWorld('overlayAPI', overlayAPI)
 contextBridge.exposeInMainWorld('annotationOverlayAPI', annotationOverlayAPI)
 contextBridge.exposeInMainWorld('highlighterCursorAPI', highlighterCursorAPI)
 contextBridge.exposeInMainWorld('effectsAPI', effectsAPI)
+contextBridge.exposeInMainWorld('webcamAPI', webcamAPI)

@@ -32,7 +32,8 @@ export default defineConfig({
           'annotation-overlay': resolve(__dirname, 'src/renderer/annotation-overlay.html'),
           'annotation-toolbar': resolve(__dirname, 'src/renderer/annotation-toolbar.html'),
           'highlighter-cursor': resolve(__dirname, 'src/renderer/highlighter-cursor.html'),
-          effects: resolve(__dirname, 'src/renderer/effects.html')
+          effects: resolve(__dirname, 'src/renderer/effects.html'),
+          webcam: resolve(__dirname, 'src/renderer/webcam.html')
         }
       }
     }

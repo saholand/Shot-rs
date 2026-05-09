@@ -72,8 +72,6 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
   const cropVideoRef = useRef<HTMLVideoElement | null>(null)
   const cropAnimRef = useRef<number | null>(null)
   const cropStreamRef = useRef<MediaStream | null>(null)
-  const webcamStreamRef = useRef<MediaStream | null>(null)
-  const webcamVideoRef = useRef<HTMLVideoElement | null>(null)
 
   // Click-to-zoom state, stepped each frame inside drawOnce. Center is in
   // SOURCE-VIDEO physical pixels (so it composes cleanly with baseRect).
@@ -253,10 +251,6 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
         cropStreamRef.current.getTracks().forEach(t => t.stop())
         cropStreamRef.current = null
       }
-      if (webcamStreamRef.current) {
-        webcamStreamRef.current.getTracks().forEach(t => t.stop())
-        webcamStreamRef.current = null
-      }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(t => t.stop())
       }
@@ -339,46 +333,15 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
         })
       }
 
-      // ── Optional webcam stream (PIP) ────────────────────────────────
-      // Acquired before the canvas pipeline so we can compose it into
-      // each frame. If the user denied camera access (or no device
-      // is connected) we just disable PIP for this session and toast.
-      let webcamVideo: HTMLVideoElement | null = null
-      if (settings.webcamEnabled) {
-        try {
-          const constraints: MediaStreamConstraints = {
-            audio: false,
-            video: settings.webcamDeviceId
-              ? { deviceId: { exact: settings.webcamDeviceId } }
-              : true
-          }
-          const camStream = await navigator.mediaDevices.getUserMedia(constraints)
-          webcamStreamRef.current = camStream
-          const v = document.createElement('video')
-          v.srcObject = camStream
-          v.muted = true
-          await new Promise<void>(resolve => {
-            v.onloadedmetadata = () => resolve()
-            if (v.readyState >= 1) resolve()
-          })
-          await v.play().catch(() => { /* autoplay grace */ })
-          webcamVideoRef.current = v
-          webcamVideo = v
-        } catch (err) {
-          console.warn('Webcam unavailable:', err)
-          setStatus({ text: t('recording.webcamUnavailable'), type: 'info' })
-        }
-      }
-
       // ── Decide whether we need the canvas compositing pipeline ─────
       // Canvas runs whenever:
       //   - user picked a region (so we must crop),
-      //   - webcam PIP is active (compose camera onto frame),
       //   - click-to-zoom is enabled (zoom transform applied each frame).
-      // When none of those are on, fall through the fast path that feeds
-      // the desktop track straight into MediaRecorder (no extra CPU).
+      // Webcam is NOT canvas-composed — it lives in its own draggable
+      // window that the OS desktopCapturer picks up alongside the rest
+      // of the screen. (Window managed by main process at recording start.)
       const cropRegion = region || cropRegionRef.current
-      const needsCompositing = !!cropRegion || !!webcamVideo || settings.zoomEnabled
+      const needsCompositing = !!cropRegion || settings.zoomEnabled
       let recordStream: MediaStream
 
       if (needsCompositing) {
@@ -429,24 +392,6 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
           }
         }
 
-        // Pre-compute webcam PIP rect on the canvas (in source-pixel units).
-        // Size relative to the SHORTER frame side so it scales sensibly on
-        // both 16:9 and ultra-wide monitors.
-        const webcamSizeFactor: Record<'small' | 'medium' | 'large', number> = {
-          small: 0.12, medium: 0.18, large: 0.26
-        }
-        const webcamMargin = Math.round(Math.min(baseRect.w, baseRect.h) * 0.025)
-        const webcamD = Math.round(Math.min(baseRect.w, baseRect.h) * webcamSizeFactor[settings.webcamSize])
-        const webcamRect = (() => {
-          switch (settings.webcamPosition) {
-            case 'tl': return { x: webcamMargin, y: webcamMargin }
-            case 'tr': return { x: baseRect.w - webcamD - webcamMargin, y: webcamMargin }
-            case 'bl': return { x: webcamMargin, y: baseRect.h - webcamD - webcamMargin }
-            case 'br':
-            default:  return { x: baseRect.w - webcamD - webcamMargin, y: baseRect.h - webcamD - webcamMargin }
-          }
-        })()
-
         let intervalHandle: ReturnType<typeof setInterval> | null = null
         const drawOnce = () => {
           try {
@@ -470,44 +415,8 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
             // Clamp inside baseRect
             srcX = Math.max(baseRect.sx, Math.min(srcX, baseRect.sx + baseRect.w - sw))
             srcY = Math.max(baseRect.sy, Math.min(srcY, baseRect.sy + baseRect.h - sh))
-            // Layer 1: desktop frame (zoomed)
+            // Desktop frame (zoomed if zoom is active)
             ctx.drawImage(video, srcX, srcY, sw, sh, 0, 0, baseRect.w, baseRect.h)
-            // Layer 2: webcam PIP (clipped to circle or rounded square)
-            if (webcamVideo && webcamVideo.videoWidth > 0) {
-              ctx.save()
-              ctx.beginPath()
-              if (settings.webcamShape === 'circle') {
-                ctx.arc(webcamRect.x + webcamD / 2, webcamRect.y + webcamD / 2, webcamD / 2, 0, Math.PI * 2)
-              } else {
-                const r = Math.round(webcamD * 0.12)
-                const x = webcamRect.x, y = webcamRect.y, w = webcamD, h = webcamD
-                ctx.moveTo(x + r, y)
-                ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r)
-                ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
-                ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r)
-                ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y)
-              }
-              ctx.clip()
-              // Center-crop the camera frame into the square slot so the
-              // aspect ratio doesn't squish faces.
-              const cw2 = webcamVideo.videoWidth
-              const ch2 = webcamVideo.videoHeight
-              const camSide = Math.min(cw2, ch2)
-              const camSx = (cw2 - camSide) / 2
-              const camSy = (ch2 - camSide) / 2
-              ctx.drawImage(webcamVideo, camSx, camSy, camSide, camSide, webcamRect.x, webcamRect.y, webcamD, webcamD)
-              ctx.restore()
-              // Subtle ring for visual polish
-              ctx.save()
-              ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)'
-              ctx.lineWidth = Math.max(1, Math.round(webcamD * 0.012))
-              if (settings.webcamShape === 'circle') {
-                ctx.beginPath()
-                ctx.arc(webcamRect.x + webcamD / 2, webcamRect.y + webcamD / 2, webcamD / 2, 0, Math.PI * 2)
-                ctx.stroke()
-              }
-              ctx.restore()
-            }
           } catch { /* video not ready */ }
         }
         const drawFrame = () => {
@@ -665,16 +574,6 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
       cropVideoRef.current.pause()
       cropVideoRef.current.srcObject = null
       cropVideoRef.current = null
-    }
-    // Stop webcam stream + video element
-    if (webcamVideoRef.current) {
-      webcamVideoRef.current.pause()
-      webcamVideoRef.current.srcObject = null
-      webcamVideoRef.current = null
-    }
-    if (webcamStreamRef.current) {
-      webcamStreamRef.current.getTracks().forEach(t => t.stop())
-      webcamStreamRef.current = null
     }
     // Stop the canvas captureStream (its tracks are independent of the
     // desktop stream and otherwise leak the video frame loop).
@@ -852,9 +751,15 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
                 type="checkbox"
                 checked={settings.webcamEnabled}
                 onChange={async e => {
-                  const next = { ...settings, webcamEnabled: e.target.checked }
+                  const enabled = e.target.checked
+                  const next = { ...settings, webcamEnabled: enabled }
                   setSettings(next)
                   await window.electronAPI.settings.save(next)
+                  // If a recording is in progress, also flip the webcam
+                  // window live so the change takes effect immediately.
+                  if (phase === 'recording') {
+                    window.electronAPI.recording.toggleWebcam(enabled)
+                  }
                 }}
               />
               <span className="mic-toggle-label">{t('recording.webcamToggle')}</span>

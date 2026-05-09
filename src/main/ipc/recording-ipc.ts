@@ -25,6 +25,9 @@ import {
   createEffectsWindow, closeEffectsWindow,
   pushEffectsState, pushEffectsClick, pushEffectsCursor, getEffectsWindow
 } from '../windows/effects-window'
+import {
+  createWebcamWindow, closeWebcamWindow
+} from '../windows/webcam-window'
 import type { RecordingResult } from '../../shared/types/recording'
 import type { HighlighterCursorState, EffectsState } from '../../shared/types/ipc'
 
@@ -45,6 +48,17 @@ export function registerRecordingIPC(): void {
     createAnnotationOverlay()
     // Keep compact bar above the overlay
     setRecordingAlwaysOnTop(true)
+
+    // Open the webcam preview window if the user has it enabled. The
+    // window is what the desktopCapturer picks up — there's no separate
+    // canvas-compose path. User can drag/resize it freely.
+    const settings = getSettings()
+    if (settings.webcamEnabled) {
+      createWebcamWindow({
+        deviceId: settings.webcamDeviceId,
+        shape: settings.webcamShape
+      })
+    }
 
     // Spin up the mouse hook to push cursor positions to the highlighter
     // overlay window. Best-effort — failures (missing native binary, AV)
@@ -89,6 +103,17 @@ export function registerRecordingIPC(): void {
     stopMouseHook()
     closeHighlighterCursorWindow()
     closeEffectsWindow()
+    closeWebcamWindow()
+  })
+
+  // Mid-recording webcam toggle (live toolbar / pick-phase quick toggle)
+  ipcMain.on(IPC_CHANNELS.WEBCAM_TOGGLE, (_event, enabled: boolean) => {
+    if (enabled) {
+      const s = getSettings()
+      createWebcamWindow({ deviceId: s.webcamDeviceId, shape: s.webcamShape })
+    } else {
+      closeWebcamWindow()
+    }
   })
 
   // Highlighter cursor toggle / state updates from the live toolbar
