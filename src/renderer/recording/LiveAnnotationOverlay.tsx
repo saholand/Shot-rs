@@ -44,7 +44,7 @@ export function LiveAnnotationOverlay() {
   useEffect(() => {
     window.annotationOverlayAPI.onCommand((cmd: AnnotationCommand) => {
       switch (cmd.type) {
-        case 'set-tool': setTool(cmd.tool as AnnotationTool); break
+        case 'set-tool': setTool(cmd.tool as AnnotationTool | null); break
         case 'set-color': setColor(cmd.color); break
         case 'undo': undo(); break
         case 'clear':

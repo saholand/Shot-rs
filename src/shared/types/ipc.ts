@@ -206,7 +206,7 @@ export interface ElectronAPI {
 export type AnnotationMode = 'draw' | 'passthrough'
 
 export type AnnotationCommand =
-  | { type: 'set-tool'; tool: string }
+  | { type: 'set-tool'; tool: string | null }
   | { type: 'set-color'; color: string }
   | { type: 'undo' }
   | { type: 'clear' }

@@ -33,7 +33,9 @@ export function createWebcamWindow(args: InitArgs): BrowserWindow {
     return webcamWindow
   }
 
-  // Restore saved bounds, or place near bottom-right of the cursor's display
+  // Restore saved bounds, or place near top-right of the cursor's display
+  // (top-right is more visible than bottom-right since the bottom edge
+  // often has the taskbar / dock obstructing).
   const settings = getSettings()
   let x: number, y: number, w = DEFAULT_W, h = DEFAULT_H
   if (settings.webcamBounds) {
@@ -42,8 +44,9 @@ export function createWebcamWindow(args: InitArgs): BrowserWindow {
     const cursor = screen.getCursorScreenPoint()
     const display = screen.getDisplayNearestPoint(cursor)
     x = display.bounds.x + display.bounds.width - w - 24
-    y = display.bounds.y + display.bounds.height - h - 60
+    y = display.bounds.y + 60
   }
+  console.log(`[webcam] creating window at ${x},${y} ${w}×${h}, deviceId=${args.deviceId}`)
 
   webcamWindow = new BrowserWindow({
     x, y, width: w, height: h,

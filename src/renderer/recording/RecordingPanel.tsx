@@ -861,11 +861,10 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
                   const next = { ...settings, webcamEnabled: enabled }
                   setSettings(next)
                   await window.electronAPI.settings.save(next)
-                  // If a recording is in progress, also flip the webcam
-                  // window live so the change takes effect immediately.
-                  if (phase === 'recording') {
-                    window.electronAPI.recording.toggleWebcam(enabled)
-                  }
+                  // Open or close the webcam window immediately so the
+                  // user can position / size it BEFORE the recording
+                  // starts (and during recording too).
+                  window.electronAPI.recording.toggleWebcam(enabled)
                 }}
               />
               <span className="mic-toggle-label">{t('recording.webcamToggle')}</span>

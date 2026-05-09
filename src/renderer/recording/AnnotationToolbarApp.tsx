@@ -87,7 +87,10 @@ export function AnnotationToolbarApp() {
 
   const handleToolChange = useCallback((tool: AnnotationTool | null) => {
     setActiveTool(tool)
-    if (tool) sendCommand({ type: 'set-tool', tool })
+    // Always notify the canvas — null = "no drawing tool active"
+    // (Select / pointer mode). Without this, switching to Select left
+    // the canvas stuck on whatever tool was last set.
+    sendCommand({ type: 'set-tool', tool })
   }, [sendCommand])
 
   const handleColorChange = useCallback((color: string) => {
