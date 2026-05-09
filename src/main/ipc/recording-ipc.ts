@@ -77,6 +77,12 @@ export function registerRecordingIPC(): void {
         if (getEffectsWindow()) {
           pushEffectsClick(payload)
         }
+        // Also forward to main window so RecordingPanel can run
+        // auto-zoom click-cluster detection.
+        const mw = getMainWindow()
+        if (mw && !mw.isDestroyed()) {
+          mw.webContents.send(IPC_CHANNELS.RECORDING_CLICK_EVENT, payload)
+        }
       },
       onZoomTrigger: (payload) => {
         const win = getMainWindow()

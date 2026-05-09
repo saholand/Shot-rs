@@ -115,6 +115,10 @@ export const tr: Record<string, string> = {
   'settings.clickZoomDesc': 'Sağ-klik double → kayıtta o noktaya zoom-in. Scroll wheel ile kademeli zoom-out',
   'settings.zoomLevel': 'Zoom seviyesi',
   'settings.zoomLevelDesc': 'Sağ-klik double yapınca uygulanan zoom faktörü',
+  'settings.autoZoom': 'Otomatik zoom (aktiviteye göre)',
+  'settings.autoZoomDesc': 'Hızlı tıklamada otomatik o bölgeye zoom-in. Bir süre sonra eski haline döner',
+  'settings.autoZoomHold': 'Auto-zoom süresi',
+  'settings.autoZoomHoldDesc': 'Cluster algılandıktan kaç saniye sonra geri çıkılsın',
   'settings.defaultSaveDir': 'Varsayılan kayıt klasörü',
   'settings.defaultSaveDirDesc': 'Boş bırakılırsa her seferinde sorulur',
   'settings.notSpecified': '(Belirtilmemiş)',
@@ -164,6 +168,7 @@ export const tr: Record<string, string> = {
   'recording.maxDurationRemaining': 'Otomatik durmaya kalan süre',
   'recording.webcamUnavailable': 'Kamera kullanılamıyor — sadece ekran kaydedilecek',
   'recording.trimBtn': '✂ Trim et',
+  'recording.micLevel': 'Mikrofon seviyesi',
 
   // ── Trim editor ──
   'trim.title': 'Kayıdı Kes',
@@ -262,6 +267,9 @@ export const tr: Record<string, string> = {
   'liveToolbar.highlightCursorSmall': 'İnce',
   'liveToolbar.highlightCursorMed': 'Orta',
   'liveToolbar.highlightCursorLarge': 'Kalın',
+  'liveToolbar.highlightCursorMode': 'Stil',
+  'liveToolbar.highlightModeDisc': 'Fosforlu',
+  'liveToolbar.highlightModeRing': 'Çerçeve (sade)',
   'liveToolbar.clickRipple': 'Tıklama efekti (kayıtta görünür)',
   'liveToolbar.rippleSize': 'Boyut',
   'liveToolbar.rippleSmall': 'Küçük',

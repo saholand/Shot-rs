@@ -96,7 +96,13 @@ const api: ElectronAPI = {
       ipcRenderer.removeAllListeners(IPC_CHANNELS.RECORDING_ZOOM_WHEEL)
     },
     trim: (payload) => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_TRIM, payload),
-    toggleWebcam: (enabled: boolean) => ipcRenderer.send(IPC_CHANNELS.WEBCAM_TOGGLE, enabled)
+    toggleWebcam: (enabled: boolean) => ipcRenderer.send(IPC_CHANNELS.WEBCAM_TOGGLE, enabled),
+    onClickEvent: (callback: (payload: EffectsClickPayload) => void) => {
+      ipcRenderer.on(IPC_CHANNELS.RECORDING_CLICK_EVENT, (_e, payload) => callback(payload))
+    },
+    removeClickEventListener: () => {
+      ipcRenderer.removeAllListeners(IPC_CHANNELS.RECORDING_CLICK_EVENT)
+    }
   },
   app: {
     onForceMode: (callback) => {

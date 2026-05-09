@@ -84,6 +84,7 @@ export const IPC_CHANNELS = {
   // Click-to-zoom (during recording)
   RECORDING_ZOOM_TRIGGER: 'recording:zoom-trigger',
   RECORDING_ZOOM_WHEEL: 'recording:zoom-wheel',
+  RECORDING_CLICK_EVENT: 'recording:click-event',
 
   // Trim editor
   RECORDING_TRIM: 'recording:trim',

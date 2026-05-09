@@ -115,6 +115,10 @@ export const en: Record<string, string> = {
   'settings.clickZoomDesc': 'Right-click double → zoom into that spot in the recording. Scroll wheel zooms back out',
   'settings.zoomLevel': 'Zoom level',
   'settings.zoomLevelDesc': 'Zoom factor applied on a double right-click',
+  'settings.autoZoom': 'Auto-zoom (activity-based)',
+  'settings.autoZoomDesc': 'Rapid clicks zoom into that area; eases back after a moment',
+  'settings.autoZoomHold': 'Auto-zoom duration',
+  'settings.autoZoomHoldDesc': 'Seconds to stay zoomed before easing back out',
   'settings.defaultSaveDir': 'Default save folder',
   'settings.defaultSaveDirDesc': 'If empty, you will be prompted each time',
   'settings.notSpecified': '(Not specified)',
@@ -164,6 +168,7 @@ export const en: Record<string, string> = {
   'recording.maxDurationRemaining': 'Time until auto-stop',
   'recording.webcamUnavailable': 'Webcam unavailable — recording screen only',
   'recording.trimBtn': '✂ Trim',
+  'recording.micLevel': 'Microphone level',
 
   // ── Trim editor ──
   'trim.title': 'Trim Recording',
@@ -262,6 +267,9 @@ export const en: Record<string, string> = {
   'liveToolbar.highlightCursorSmall': 'Thin',
   'liveToolbar.highlightCursorMed': 'Medium',
   'liveToolbar.highlightCursorLarge': 'Thick',
+  'liveToolbar.highlightCursorMode': 'Style',
+  'liveToolbar.highlightModeDisc': 'Glow',
+  'liveToolbar.highlightModeRing': 'Outline (subtle)',
   'liveToolbar.clickRipple': 'Click effect (shows in recording)',
   'liveToolbar.rippleSize': 'Size',
   'liveToolbar.rippleSmall': 'Small',

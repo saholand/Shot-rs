@@ -54,6 +54,10 @@ export interface HighlighterCursorState {
   enabled: boolean
   color: string
   thickness: 'small' | 'medium' | 'large'
+  /** 'disc' = full color glow (default). 'ring' = thin colored outline,
+   *  used as a "smooth cursor" / subtle tracker without the fluorescent
+   *  look. */
+  mode?: 'disc' | 'ring'
 }
 
 /** Effects overlay state — click ripples and (Phase 3) cursor spotlight. */
@@ -162,6 +166,9 @@ export interface ElectronAPI {
     trim: (payload: { inputPath: string; startSec: number; endSec: number }) => Promise<RecordingResult>
     // Webcam window mid-session toggle
     toggleWebcam: (enabled: boolean) => void
+    // Click events forwarded from main (for auto-zoom cluster detection)
+    onClickEvent: (callback: (payload: EffectsClickPayload) => void) => void
+    removeClickEventListener: () => void
   }
 
   app: {

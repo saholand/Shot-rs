@@ -84,6 +84,10 @@ export interface AppSettings {
   zoomEnabled: boolean
   zoomDefaultLevel: number
   zoomDoubleClickWindowMs: number
+
+  // ── Auto-zoom on activity ──
+  autoZoomEnabled: boolean
+  autoZoomHoldSec: number
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -121,7 +125,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   webcamSize: 'medium',
   zoomEnabled: false,
   zoomDefaultLevel: 2.5,
-  zoomDoubleClickWindowMs: 350
+  zoomDoubleClickWindowMs: 350,
+  autoZoomEnabled: false,
+  autoZoomHoldSec: 3
 }
 
 /**

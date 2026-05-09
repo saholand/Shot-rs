@@ -58,6 +58,7 @@ export function AnnotationToolbarApp() {
   const [eraserSize, setEraserSize] = useState<EraserSize>('medium')
   const [highlighterEnabled, setHighlighterEnabled] = useState(false)
   const [highlighterThickness, setHighlighterThickness] = useState<HighlighterThickness>('medium')
+  const [highlighterMode, setHighlighterMode] = useState<'disc' | 'ring'>('disc')
   const [rippleEnabled, setRippleEnabled] = useState(false)
   const [rippleColor, setRippleColor] = useState('#4fa3f7')
   const [rippleSize, setRippleSize] = useState<RippleSize>('medium')
@@ -120,27 +121,33 @@ export function AnnotationToolbarApp() {
 
   // Highlighter cursor — toggles a fluorescent overlay disc following the
   // cursor. The disc color tracks the active draw color; thickness has its
-  // own sub-bar.
-  const pushHighlighterState = useCallback((enabled: boolean, color: string, thickness: HighlighterThickness) => {
-    if (enabled) {
-      window.electronAPI.recording.setHighlighterCursor({ enabled: true, color, thickness })
-    } else {
-      window.electronAPI.recording.setHighlighterCursor({ enabled: false, color, thickness })
-    }
+  // own sub-bar. Mode picks between 'disc' (full color glow) and 'ring'
+  // (thin outline = "smooth cursor" preset).
+  const pushHighlighterState = useCallback((
+    enabled: boolean, color: string, thickness: HighlighterThickness, mode: 'disc' | 'ring'
+  ) => {
+    window.electronAPI.recording.setHighlighterCursor({ enabled, color, thickness, mode })
   }, [])
 
   const handleHighlighterToggle = useCallback(() => {
     const next = !highlighterEnabled
     setHighlighterEnabled(next)
-    pushHighlighterState(next, activeColor, highlighterThickness)
-  }, [highlighterEnabled, activeColor, highlighterThickness, pushHighlighterState])
+    pushHighlighterState(next, activeColor, highlighterThickness, highlighterMode)
+  }, [highlighterEnabled, activeColor, highlighterThickness, highlighterMode, pushHighlighterState])
 
   const handleHighlighterThicknessChange = useCallback((value: HighlighterThickness) => {
     setHighlighterThickness(value)
     if (highlighterEnabled) {
-      window.electronAPI.recording.updateHighlighterCursor({ enabled: true, color: activeColor, thickness: value })
+      window.electronAPI.recording.updateHighlighterCursor({ enabled: true, color: activeColor, thickness: value, mode: highlighterMode })
     }
-  }, [highlighterEnabled, activeColor])
+  }, [highlighterEnabled, activeColor, highlighterMode])
+
+  const handleHighlighterModeChange = useCallback((value: 'disc' | 'ring') => {
+    setHighlighterMode(value)
+    if (highlighterEnabled) {
+      window.electronAPI.recording.updateHighlighterCursor({ enabled: true, color: activeColor, thickness: highlighterThickness, mode: value })
+    }
+  }, [highlighterEnabled, activeColor, highlighterThickness])
 
   // Keep the highlighter overlay in sync when the user picks a new color
   useEffect(() => {
@@ -148,10 +155,11 @@ export function AnnotationToolbarApp() {
       window.electronAPI.recording.updateHighlighterCursor({
         enabled: true,
         color: activeColor,
-        thickness: highlighterThickness
+        thickness: highlighterThickness,
+        mode: highlighterMode
       })
     }
-  }, [activeColor, highlighterEnabled, highlighterThickness])
+  }, [activeColor, highlighterEnabled, highlighterThickness, highlighterMode])
 
   // Combined effects state push: both ripple + spotlight live in one
   // window so we always push the full snapshot on any change.
@@ -397,20 +405,39 @@ export function AnnotationToolbarApp() {
       </div>
     </>
   )
+  const HIGHLIGHTER_MODES: { id: 'disc' | 'ring'; label: string }[] = [
+    { id: 'disc', label: t('liveToolbar.highlightModeDisc') },
+    { id: 'ring', label: t('liveToolbar.highlightModeRing') }
+  ]
   const renderHighlighterCursor = () => (
-    <div className="la-sub-group">
-      <span className="la-sub-label">{t('liveToolbar.highlightCursorSize')}</span>
-      {HIGHLIGHTER_SIZES.map(h => (
-        <button
-          key={h.id}
-          className={`la-stroke-btn ${highlighterThickness === h.id ? 'la-stroke-active' : ''}`}
-          onClick={() => handleHighlighterThicknessChange(h.id)}
-          title={h.label}
-        >
-          <span className="la-stroke-dot" style={{ width: h.dot, height: h.dot, background: activeColor }} />
-        </button>
-      ))}
-    </div>
+    <>
+      <div className="la-sub-group">
+        <span className="la-sub-label">{t('liveToolbar.highlightCursorSize')}</span>
+        {HIGHLIGHTER_SIZES.map(h => (
+          <button
+            key={h.id}
+            className={`la-stroke-btn ${highlighterThickness === h.id ? 'la-stroke-active' : ''}`}
+            onClick={() => handleHighlighterThicknessChange(h.id)}
+            title={h.label}
+          >
+            <span className="la-stroke-dot" style={{ width: h.dot, height: h.dot, background: activeColor }} />
+          </button>
+        ))}
+      </div>
+      <div className="la-sub-sep" />
+      <div className="la-sub-group">
+        <span className="la-sub-label">{t('liveToolbar.highlightCursorMode')}</span>
+        {HIGHLIGHTER_MODES.map(m => (
+          <button
+            key={m.id}
+            className={`la-pill ${highlighterMode === m.id ? 'la-pill-active' : ''}`}
+            onClick={() => handleHighlighterModeChange(m.id)}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+    </>
   )
 
   const subbar = (() => {

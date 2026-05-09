@@ -6,12 +6,14 @@ interface State {
   visible: boolean
   color: string
   thickness: HighlighterThickness
+  mode: 'disc' | 'ring'
 }
 
 const DEFAULT_STATE: State = {
   visible: false,
   color: '#ffea00',
-  thickness: 'medium'
+  thickness: 'medium',
+  mode: 'disc'
 }
 
 /**
@@ -37,7 +39,12 @@ export function HighlighterCursorApp() {
 
   useEffect(() => {
     window.highlighterCursorAPI.onUpdate((s: HighlighterCursorState) => {
-      setState({ visible: s.enabled, color: s.color, thickness: s.thickness })
+      setState({
+        visible: s.enabled,
+        color: s.color,
+        thickness: s.thickness,
+        mode: s.mode ?? 'disc'
+      })
     })
     window.highlighterCursorAPI.onPos((p: HighlighterPosPayload) => {
       targetRef.current = { x: p.x, y: p.y }
@@ -87,22 +94,25 @@ export function HighlighterCursorApp() {
   if (!state.visible) return null
 
   const diameter = HIGHLIGHTER_DIAMETER[state.thickness]
+  // 'subtle' renders as a thin ring without color glow — gives the
+  // smoothing benefit (jitter-free tracked cursor) without the
+  // fluorescent look. Other thicknesses still render the highlighter
+  // disc with the user's chosen color.
+  const isRing = state.mode === 'ring'
   return (
     <div
       ref={discRef}
-      className="hl-disc"
+      className={`hl-disc ${isRing ? 'hl-ring' : ''}`}
       style={{
         width: diameter,
         height: diameter,
-        // Pale highlighter look: soft, low-saturation glow that fades out
-        // toward the edge instead of a solid disc. Keep the center color
-        // at low alpha so what's underneath stays readable.
-        background: `radial-gradient(circle,
+        background: isRing ? 'transparent' : `radial-gradient(circle,
           ${state.color}55 0%,
           ${state.color}33 45%,
           ${state.color}10 75%,
           transparent 100%)`,
-        boxShadow: `0 0 ${diameter * 0.45}px ${state.color}55`
+        boxShadow: isRing ? 'none' : `0 0 ${diameter * 0.45}px ${state.color}55`,
+        border: isRing ? `2px solid ${state.color}` : 'none'
       }}
     />
   )

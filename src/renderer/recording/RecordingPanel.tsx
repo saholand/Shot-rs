@@ -73,6 +73,12 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
   const cropAnimRef = useRef<number | null>(null)
   const cropStreamRef = useRef<MediaStream | null>(null)
 
+  // Live mic level (0..1) — sampled from the mic stream via Web Audio
+  // and rendered as a small bar in the compact recording bar.
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const audioRafRef = useRef<number | null>(null)
+  const [micLevel, setMicLevel] = useState(0)
+
   // Click-to-zoom state, stepped each frame inside drawOnce. Center is in
   // SOURCE-VIDEO physical pixels (so it composes cleanly with baseRect).
   const zoomStateRef = useRef<{
@@ -213,6 +219,65 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
     }
   }, [phase, settings.zoomEnabled, settings.zoomDefaultLevel])
 
+  // ── Auto-zoom on click-cluster activity ──────────────────────────
+  // Listens to mousedown events forwarded from main and triggers a
+  // zoom-in when 2+ clicks land within 200px / 800ms. After
+  // autoZoomHoldSec without further clusters, eases back to 1×.
+  useEffect(() => {
+    if (phase !== 'recording' || !settings.autoZoomEnabled) return
+
+    const recent: { x: number; y: number; t: number }[] = []
+    let resetTimeout: ReturnType<typeof setTimeout> | null = null
+
+    const easeTo = (cx: number, cy: number, target: number) => {
+      const z = zoomStateRef.current
+      if (!z) return
+      z.fromLevel = z.level
+      z.fromCenterX = z.centerX
+      z.fromCenterY = z.centerY
+      z.toLevel = target
+      z.toCenterX = cx
+      z.toCenterY = cy
+      z.animStart = performance.now()
+      z.animDuration = 400
+      z.active = target > 1.01
+    }
+
+    const onClick = (payload: { x: number; y: number; button: number }) => {
+      if (isPausedRef.current) return
+      if (payload.button !== 1) return // left clicks only
+      const now = performance.now()
+      // Drop clicks older than 800ms
+      while (recent.length && now - recent[0].t > 800) recent.shift()
+      recent.push({ x: payload.x, y: payload.y, t: now })
+
+      // Detect cluster: at least 2 clicks within 200px of each other
+      if (recent.length >= 2) {
+        const last = recent[recent.length - 1]
+        const prev = recent[recent.length - 2]
+        const dx = last.x - prev.x
+        const dy = last.y - prev.y
+        if (Math.hypot(dx, dy) <= 200) {
+          // Center on the average of the cluster
+          const cx = (last.x + prev.x) / 2
+          const cy = (last.y + prev.y) / 2
+          easeTo(cx, cy, settings.zoomDefaultLevel || 2)
+          // Schedule a reset after holdSec; cluster extension restarts it
+          if (resetTimeout) clearTimeout(resetTimeout)
+          resetTimeout = setTimeout(() => {
+            easeTo(cx, cy, 1)
+          }, (settings.autoZoomHoldSec ?? 3) * 1000)
+        }
+      }
+    }
+
+    window.electronAPI.recording.onClickEvent(onClick)
+    return () => {
+      window.electronAPI.recording.removeClickEventListener()
+      if (resetTimeout) clearTimeout(resetTimeout)
+    }
+  }, [phase, settings.autoZoomEnabled, settings.autoZoomHoldSec, settings.zoomDefaultLevel])
+
   // Listen for region selection result
   useEffect(() => {
     window.electronAPI.recording.onRegionSelected(async (payload: RecordingRegionPayload) => {
@@ -336,12 +401,13 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
       // ── Decide whether we need the canvas compositing pipeline ─────
       // Canvas runs whenever:
       //   - user picked a region (so we must crop),
-      //   - click-to-zoom is enabled (zoom transform applied each frame).
+      //   - click-to-zoom is enabled (manual zoom transform per frame),
+      //   - auto-zoom is enabled (cluster-detected zoom).
       // Webcam is NOT canvas-composed — it lives in its own draggable
       // window that the OS desktopCapturer picks up alongside the rest
-      // of the screen. (Window managed by main process at recording start.)
+      // of the screen.
       const cropRegion = region || cropRegionRef.current
-      const needsCompositing = !!cropRegion || settings.zoomEnabled
+      const needsCompositing = !!cropRegion || settings.zoomEnabled || settings.autoZoomEnabled
       let recordStream: MediaStream
 
       if (needsCompositing) {
@@ -380,7 +446,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
         const ctx = canvas.getContext('2d')!
 
         // Initialize zoom state (level=1, centered on baseRect)
-        if (settings.zoomEnabled) {
+        if (settings.zoomEnabled || settings.autoZoomEnabled) {
           const cx = baseRect.sx + baseRect.w / 2
           const cy = baseRect.sy + baseRect.h / 2
           zoomStateRef.current = {
@@ -460,6 +526,33 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
           micStreamRef.current = micStream
           micStream.getAudioTracks().forEach(t => combinedStream.addTrack(t))
           setMicActive(true)
+
+          // ── Live mic level meter ────────────────────────────────────
+          const AudioCtx = (window as unknown as { AudioContext?: typeof AudioContext, webkitAudioContext?: typeof AudioContext }).AudioContext
+            ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+          const ctx = new AudioCtx()
+          audioCtxRef.current = ctx
+          const src = ctx.createMediaStreamSource(micStream)
+          const analyser = ctx.createAnalyser()
+          analyser.fftSize = 512
+          analyser.smoothingTimeConstant = 0.6
+          src.connect(analyser)
+          const buf = new Uint8Array(analyser.fftSize)
+          const tick = () => {
+            analyser.getByteTimeDomainData(buf)
+            // RMS of the centered samples (0..128 around midpoint 128)
+            let sum = 0
+            for (let i = 0; i < buf.length; i++) {
+              const d = (buf[i] - 128) / 128
+              sum += d * d
+            }
+            const rms = Math.sqrt(sum / buf.length)
+            // Scale 0..1 with a soft compressor so quiet voices still
+            // register visibly without saturating on loud sounds.
+            setMicLevel(Math.min(1, Math.pow(rms * 3, 0.6)))
+            audioRafRef.current = requestAnimationFrame(tick)
+          }
+          audioRafRef.current = requestAnimationFrame(tick)
         } catch {
           setStatus({ text: t('recording.micUnavailable'), type: 'info' })
         }
@@ -593,6 +686,15 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
       micStreamRef.current.getTracks().forEach(t => t.stop())
       micStreamRef.current = null
     }
+    if (audioRafRef.current) {
+      cancelAnimationFrame(audioRafRef.current)
+      audioRafRef.current = null
+    }
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close().catch(() => { /* ignore */ })
+      audioCtxRef.current = null
+    }
+    setMicLevel(0)
     setMicActive(false)
   }
 
@@ -712,7 +814,11 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
             <circle cx="11" cy="11" r="2"/>
           </svg>
         </button>
-        {micActive && <span className="rec-compact-mic">MIC</span>}
+        {micActive && (
+          <span className="rec-compact-mic" title={t('recording.micLevel')}>
+            <span className="rec-mic-bar" style={{ height: `${Math.round(micLevel * 100)}%` }} />
+          </span>
+        )}
       </div>
     )
   }
