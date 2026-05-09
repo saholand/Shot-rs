@@ -837,14 +837,29 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
             loading={loading}
           />
 
-          <label className="mic-toggle">
-            <input
-              type="checkbox"
-              checked={micEnabled}
-              onChange={e => setMicEnabled(e.target.checked)}
-            />
-            <span className="mic-toggle-label">{t('recording.microphone')}</span>
-          </label>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <label className="mic-toggle">
+              <input
+                type="checkbox"
+                checked={micEnabled}
+                onChange={e => setMicEnabled(e.target.checked)}
+              />
+              <span className="mic-toggle-label">{t('recording.microphone')}</span>
+            </label>
+
+            <label className="mic-toggle" title={t('recording.webcamHint')}>
+              <input
+                type="checkbox"
+                checked={settings.webcamEnabled}
+                onChange={async e => {
+                  const next = { ...settings, webcamEnabled: e.target.checked }
+                  setSettings(next)
+                  await window.electronAPI.settings.save(next)
+                }}
+              />
+              <span className="mic-toggle-label">{t('recording.webcamToggle')}</span>
+            </label>
+          </div>
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button

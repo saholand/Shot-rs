@@ -136,6 +136,8 @@ export const tr: Record<string, string> = {
   'recording.selectSource': 'Ekran veya pencere seçin',
   'recording.refresh': 'Yenile',
   'recording.microphone': 'Mikrofon',
+  'recording.webcamToggle': 'Kamera',
+  'recording.webcamHint': 'Köşede kamera görüntüsü göster (kamera yoksa kapalı bırak)',
   'recording.startRecording': 'Kaydı Başlat',
   'recording.selectRegion': 'Bölge Seç',
   'recording.recording': 'KAYIT',
@@ -194,6 +196,7 @@ export const tr: Record<string, string> = {
   'overlay.colorCopied': 'kopyalandı',
 
   // ── Floating Toolbar (overlay) ──
+  'toolbar.select': 'Seç (hiçbir şey çizme)',
   'toolbar.move': 'Taşı',
   'toolbar.pen': 'Kalem',
   'toolbar.highlighter': 'Fosforlu',
@@ -246,6 +249,7 @@ export const tr: Record<string, string> = {
 
   // ── Live Annotation Toolbar ──
   'liveToolbar.closeDrawing': 'Çizimi Kapat (Esc)',
+  'liveToolbar.select': 'Seç (hiçbir şey çizme)',
   'liveToolbar.eraser': 'Silgi (tıkla-sil)',
   'liveToolbar.undo': 'Geri Al (Ctrl+Z)',
   'liveToolbar.clearAll': 'Tümünü Temizle',

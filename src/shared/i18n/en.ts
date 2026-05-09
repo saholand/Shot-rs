@@ -136,6 +136,8 @@ export const en: Record<string, string> = {
   'recording.selectSource': 'Select screen or window',
   'recording.refresh': 'Refresh',
   'recording.microphone': 'Microphone',
+  'recording.webcamToggle': 'Webcam',
+  'recording.webcamHint': 'Show camera in a corner (leave off if no camera)',
   'recording.startRecording': 'Start Recording',
   'recording.selectRegion': 'Select Region',
   'recording.recording': 'RECORDING',
@@ -194,6 +196,7 @@ export const en: Record<string, string> = {
   'overlay.colorCopied': 'copied',
 
   // ── Floating Toolbar (overlay) ──
+  'toolbar.select': 'Select (no drawing)',
   'toolbar.move': 'Move',
   'toolbar.pen': 'Pen',
   'toolbar.highlighter': 'Highlighter',
@@ -246,6 +249,7 @@ export const en: Record<string, string> = {
 
   // ── Live Annotation Toolbar ──
   'liveToolbar.closeDrawing': 'Close Drawing (Esc)',
+  'liveToolbar.select': 'Select (no drawing)',
   'liveToolbar.eraser': 'Eraser (click to delete)',
   'liveToolbar.undo': 'Undo (Ctrl+Z)',
   'liveToolbar.clearAll': 'Clear All',

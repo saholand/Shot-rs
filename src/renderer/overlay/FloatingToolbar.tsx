@@ -393,6 +393,16 @@ export function FloatingToolbar({
       >
         {/* Tools */}
         <div className="ft-group">
+          {/* Pointer / Select — neutral tool, no drawing */}
+          <button
+            className={`ft-btn ft-tool ${activeTool === null ? 'ft-active' : ''}`}
+            onClick={() => onToolChange(null)}
+            title={`${t('toolbar.select')} (Esc)`}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M5 2l8 18 2-7 7-2L5 2z" />
+            </svg>
+          </button>
           {TOOLS.map(tool => (
             <button
               key={tool.id}

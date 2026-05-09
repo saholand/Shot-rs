@@ -455,6 +455,17 @@ export function AnnotationToolbarApp() {
 
         <div className="la-sep" />
 
+        {/* Pointer / Select — neutral tool, no drawing */}
+        <button
+          className={`la-btn ${activeTool === null ? 'la-btn-active' : ''}`}
+          onClick={() => handleToolChange(null)}
+          title={t('liveToolbar.select')}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M5 2l8 18 2-7 7-2L5 2z" />
+          </svg>
+        </button>
+
         {TOOLS.map(tool => (
           <button
             key={tool.id}
