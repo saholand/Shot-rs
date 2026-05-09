@@ -1,16 +1,8 @@
 import type { AnnotationTool } from '../../shared/types/annotation'
+import { t } from '../../shared/i18n'
 
 // Live annotation tools
 type LiveTool = 'pen' | 'arrow' | 'rectangle' | 'line' | 'highlight' | 'cover'
-
-const TOOLS: { id: LiveTool; label: string; icon: string }[] = [
-  { id: 'pen', label: 'Kalem', icon: 'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z' },
-  { id: 'highlight', label: 'Fosforlu', icon: 'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM5 19v-1.17l9.93-9.93 1.17 1.17L6.17 19H5z' },
-  { id: 'arrow', label: 'Ok', icon: 'M12 2l-1.41 1.41L16.17 9H4v2h12.17l-5.58 5.59L12 18l8-8z' },
-  { id: 'rectangle', label: 'Kutu', icon: 'M3 3h18v18H3V3zm2 2v14h14V5H5z' },
-  { id: 'line', label: 'Çizgi', icon: 'M3.5 18.5l15-15M5.12 20.12l15-15' },
-  { id: 'cover', label: 'Gizle', icon: 'M3 3h18v18H3V3zm2 2v14h14V5H5zm2 2h4v4H7zm6 0h4v4h-4zM7 13h4v4H7zm6 0h4v4h-4z' }
-]
 
 const COLORS = [
   '#ff0000',
@@ -48,10 +40,19 @@ export function LiveAnnotationToolbar({
 }: Props) {
   if (!drawMode) return null
 
+  const TOOLS: { id: LiveTool; label: string; icon: string }[] = [
+    { id: 'pen', label: t('toolbar.pen'), icon: 'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z' },
+    { id: 'highlight', label: t('toolbar.highlighter'), icon: 'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM5 19v-1.17l9.93-9.93 1.17 1.17L6.17 19H5z' },
+    { id: 'arrow', label: t('toolbar.arrow'), icon: 'M12 2l-1.41 1.41L16.17 9H4v2h12.17l-5.58 5.59L12 18l8-8z' },
+    { id: 'rectangle', label: t('toolbar.rect'), icon: 'M3 3h18v18H3V3zm2 2v14h14V5H5z' },
+    { id: 'line', label: t('toolbar.line'), icon: 'M3.5 18.5l15-15M5.12 20.12l15-15' },
+    { id: 'cover', label: t('toolbar.hide'), icon: 'M3 3h18v18H3V3zm2 2v14h14V5H5zm2 2h4v4H7zm6 0h4v4h-4zM7 13h4v4H7zm6 0h4v4h-4z' }
+  ]
+
   return (
     <div className="la-toolbar">
       {/* Close draw mode */}
-      <button className="la-btn la-btn-close-draw" onClick={onCloseDraw} title="Çizimi Kapat (Esc)">
+      <button className="la-btn la-btn-close-draw" onClick={onCloseDraw} title={t('liveToolbar.closeDrawing')}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <path d="M18 6L6 18M6 6l12 12"/>
         </svg>
@@ -79,7 +80,7 @@ export function LiveAnnotationToolbar({
       <button
         className={`la-btn ${activeTool === 'move' ? 'la-btn-active' : ''}`}
         onClick={() => onToolChange(activeTool === 'move' ? null : 'move')}
-        title="Silgi (tıkla-sil)"
+        title={t('liveToolbar.eraser')}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M20 20H7L3 16l7-7 10 10z" />
@@ -88,7 +89,7 @@ export function LiveAnnotationToolbar({
       </button>
 
       {/* Undo */}
-      <button className="la-btn" onClick={onUndo} disabled={!canUndo} title="Geri Al (Ctrl+Z)">
+      <button className="la-btn" onClick={onUndo} disabled={!canUndo} title={t('liveToolbar.undo')}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M3 10h10a5 5 0 015 5v0a5 5 0 01-5 5H8" />
           <path d="M7 14l-4-4 4-4" />
@@ -96,7 +97,7 @@ export function LiveAnnotationToolbar({
       </button>
 
       {/* Clear all */}
-      <button className="la-btn la-btn-danger" onClick={onClear} title="Tümünü Temizle">
+      <button className="la-btn la-btn-danger" onClick={onClear} title={t('liveToolbar.clearAll')}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M3 6h18M8 6V4h8v2M5 6v14a2 2 0 002 2h10a2 2 0 002-2V6" />
         </svg>
@@ -117,7 +118,7 @@ export function LiveAnnotationToolbar({
       <div className="la-sep" />
 
       {/* Stop recording */}
-      <button className="la-btn la-btn-stop" onClick={onStopRecording} title="Kaydı Durdur">
+      <button className="la-btn la-btn-stop" onClick={onStopRecording} title={t('liveToolbar.stopRecording')}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
           <rect x="6" y="6" width="12" height="12" rx="1"/>
         </svg>

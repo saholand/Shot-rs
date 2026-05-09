@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { ScreenshotResult } from '../../shared/types/ipc'
 import { AnnotationEditor } from '../annotation/AnnotationEditor'
+import { t } from '../../shared/i18n'
 
 interface ScreenshotPanelProps {
   onBack: () => void
@@ -66,8 +67,8 @@ export function ScreenshotPanel({ onBack }: ScreenshotPanelProps) {
   // Idle phase
   return (
     <div className="panel">
-      <h2>Ekran Görüntüsü</h2>
-      <p>Yakalamak istediğiniz alanı ekrandan seçin.</p>
+      <h2>{t('overlay.screenshot')}</h2>
+      <p>{t('overlay.selectArea')}</p>
 
       <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
         <button
@@ -75,7 +76,7 @@ export function ScreenshotPanel({ onBack }: ScreenshotPanelProps) {
           style={{ width: 'auto', padding: '12px 24px' }}
           onClick={handleStart}
         >
-          <span className="mode-label">Yakalamayı Başlat</span>
+          <span className="mode-label">{t('overlay.startCapture')}</span>
         </button>
       </div>
 
@@ -89,10 +90,10 @@ export function ScreenshotPanel({ onBack }: ScreenshotPanelProps) {
       )}
 
       <p style={{ fontSize: '11px', color: '#666', marginTop: '12px' }}>
-        Dilediğiniz zaman PrintScreen tuşunu kullanabilirsiniz
+        {t('overlay.printScreenHint')}
       </p>
       <button className="back-btn" onClick={onBack}>
-        Geri
+        {t('app.back')}
       </button>
     </div>
   )

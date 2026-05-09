@@ -51,8 +51,15 @@ function getCurrentKey(type: HotkeyType): string | null {
   return currentOCRKey
 }
 
+const MAX_RETRIES = 3
+
 function tryRegister(hotkey: string, callback: () => void, type: HotkeyType): boolean {
   try {
+    // If something (possibly us) already holds it, free it first so we
+    // don't leak a stale registration when re-binding.
+    if (globalShortcut.isRegistered(hotkey)) {
+      try { globalShortcut.unregister(hotkey) } catch { /* ignore */ }
+    }
     const success = globalShortcut.register(hotkey, callback)
     if (success) {
       setCurrentKey(type, hotkey)
@@ -68,16 +75,19 @@ function safelog(msg: string): void {
   try { console.warn(msg) } catch { /* EPIPE safe */ }
 }
 
-function registerKey(hotkey: string, callback: () => void, type: HotkeyType): boolean {
+function registerKey(hotkey: string, callback: () => void, type: HotkeyType, attempt = 1): boolean {
   if (tryRegister(hotkey, callback, type)) return true
 
-  // Retry — previous instance may still hold the shortcut
-  safelog(`Failed to register ${type} hotkey: ${hotkey} — retrying in 1s`)
+  if (attempt >= MAX_RETRIES) {
+    safelog(`Giving up on ${type} hotkey ${hotkey} after ${attempt} attempts`)
+    return false
+  }
+
+  // Retry — previous instance or another app may briefly hold the shortcut
+  safelog(`Failed to register ${type} hotkey: ${hotkey} — retry ${attempt}/${MAX_RETRIES} in 1s`)
   setTimeout(() => {
     if (!getCurrentKey(type)) {
-      if (!tryRegister(hotkey, callback, type)) {
-        safelog(`Retry failed: ${type} hotkey ${hotkey}`)
-      }
+      registerKey(hotkey, callback, type, attempt + 1)
     }
   }, 1000)
   return false

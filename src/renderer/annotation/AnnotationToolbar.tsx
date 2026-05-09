@@ -1,4 +1,5 @@
 import type { AnnotationTool } from '../../shared/types/annotation'
+import { t } from '../../shared/i18n'
 
 interface AnnotationToolbarProps {
   activeTool: AnnotationTool | null
@@ -8,13 +9,6 @@ interface AnnotationToolbarProps {
   onUndo: () => void
   canUndo: boolean
 }
-
-const TOOLS: { id: AnnotationTool; label: string }[] = [
-  { id: 'arrow', label: 'Ok' },
-  { id: 'rectangle', label: 'Kutu' },
-  { id: 'text', label: 'Metin' },
-  { id: 'blur', label: 'Bulanık' }
-]
 
 const COLORS = ['#ff0000', '#00cc00', '#0088ff', '#ffcc00', '#ffffff', '#000000']
 
@@ -26,6 +20,13 @@ export function AnnotationToolbar({
   onUndo,
   canUndo
 }: AnnotationToolbarProps) {
+  const TOOLS: { id: AnnotationTool; label: string }[] = [
+    { id: 'arrow', label: t('toolbar.arrow') },
+    { id: 'rectangle', label: t('toolbar.rect') },
+    { id: 'text', label: t('toolbar.text') },
+    { id: 'blur', label: t('toolbar.blur') }
+  ]
+
   return (
     <div className="annotation-toolbar">
       <div className="toolbar-tools">
@@ -43,9 +44,9 @@ export function AnnotationToolbar({
           className="tool-btn tool-undo"
           onClick={onUndo}
           disabled={!canUndo}
-          title="Geri Al"
+          title={t('toolbar.undo')}
         >
-          Geri Al
+          {t('toolbar.undo')}
         </button>
       </div>
       <div className="toolbar-colors">

@@ -1,4 +1,5 @@
 import type { DesktopSource } from '../../shared/types/ipc'
+import { t } from '../../shared/i18n'
 
 interface SourcePickerProps {
   sources: DesktopSource[]
@@ -9,11 +10,11 @@ interface SourcePickerProps {
 
 export function SourcePicker({ sources, selectedId, onSelect, loading }: SourcePickerProps) {
   if (loading) {
-    return <p className="source-loading">Kaynaklar yükleniyor...</p>
+    return <p className="source-loading">{t('sourcePicker.loading')}</p>
   }
 
   if (sources.length === 0) {
-    return <p className="source-empty">Ekran veya pencere bulunamadı.</p>
+    return <p className="source-empty">{t('sourcePicker.empty')}</p>
   }
 
   return (

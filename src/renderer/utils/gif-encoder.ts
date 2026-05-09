@@ -3,6 +3,8 @@
  * Supports animated GIF with LZW compression.
  */
 
+import { t } from '../../shared/i18n'
+
 export class GifEncoder {
   private width: number
   private height: number
@@ -268,9 +270,9 @@ export async function videoToGif(
       const onLoaded = () => { cleanup(); resolve() }
       const onError = () => {
         cleanup()
-        reject(new Error(`Video yüklenemedi (kod: ${video.error?.code}): ${video.error?.message || 'bilinmeyen'}`))
+        reject(new Error(`${t('gif.loadFailed')} (code: ${video.error?.code}): ${video.error?.message || t('gif.unknown')}`))
       }
-      const timer = setTimeout(() => { cleanup(); reject(new Error('Video yükleme zaman aşımı (15s)')) }, 15000)
+      const timer = setTimeout(() => { cleanup(); reject(new Error(t('gif.loadTimeout'))) }, 15000)
       const cleanup = () => {
         video.removeEventListener('loadeddata', onLoaded)
         video.removeEventListener('error', onError)
@@ -281,7 +283,7 @@ export async function videoToGif(
     })
 
     if (!video.videoWidth || !video.videoHeight) {
-      throw new Error('Video boyutları okunamadı')
+      throw new Error(t('gif.noDimensions'))
     }
 
     const duration = await resolveDuration(video, maxDuration)
@@ -361,8 +363,8 @@ export async function videoToGif(
     // If play-based approach captured no frames, fall back to seeking
     if (frameCount === 0) {
       const seekInterval = 1 / fps
-      for (let t = 0; t < duration && frameCount < totalFrames; t += seekInterval) {
-        video.currentTime = t
+      for (let ts = 0; ts < duration && frameCount < totalFrames; ts += seekInterval) {
+        video.currentTime = ts
         await waitForEvent(video, 'seeked', 2000)
 
         ctx.drawImage(video, 0, 0, w, h)
@@ -375,7 +377,7 @@ export async function videoToGif(
     }
 
     if (frameCount === 0) {
-      throw new Error('Hiç frame yakalanamadı')
+      throw new Error(t('gif.noFrames'))
     }
 
     onProgress?.(95)

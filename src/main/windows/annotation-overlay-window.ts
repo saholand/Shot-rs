@@ -10,7 +10,12 @@ import {
 } from './annotation-toolbar-window'
 
 let annotationWindow: BrowserWindow | null = null
+let annotationDisplay: Electron.Display | null = null
 let drawMode = false
+
+export function getAnnotationDisplay(): Electron.Display | null {
+  return annotationDisplay
+}
 
 export function createAnnotationOverlay(): BrowserWindow {
   if (annotationWindow && !annotationWindow.isDestroyed()) {
@@ -20,6 +25,7 @@ export function createAnnotationOverlay(): BrowserWindow {
 
   const cursorPoint = screen.getCursorScreenPoint()
   const display = screen.getDisplayNearestPoint(cursorPoint)
+  annotationDisplay = display
   const { x, y, width, height } = display.bounds
 
   annotationWindow = new BrowserWindow({
@@ -62,6 +68,7 @@ export function createAnnotationOverlay(): BrowserWindow {
 
   annotationWindow.on('closed', () => {
     annotationWindow = null
+    annotationDisplay = null
     drawMode = false
   })
 
@@ -103,6 +110,7 @@ export function closeAnnotationOverlay(): void {
   if (annotationWindow && !annotationWindow.isDestroyed()) {
     annotationWindow.close()
     annotationWindow = null
+    annotationDisplay = null
     drawMode = false
   }
 }

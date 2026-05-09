@@ -17,28 +17,45 @@ export function renderArrow(ctx: CanvasRenderingContext2D, a: ArrowAnnotation): 
 
   const angle = Math.atan2(dy, dx)
   const headLen = a.strokeWidth * 4
+  const outline = a.headStyle === 'outline'
 
   ctx.strokeStyle = a.color
   ctx.lineWidth = a.strokeWidth
   ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+
+  // Shorten the shaft slightly when the head is filled so it doesn't peek
+  // past the triangle base
+  const shaftEndX = outline ? a.end.x : a.end.x - Math.cos(angle) * (headLen * 0.6)
+  const shaftEndY = outline ? a.end.y : a.end.y - Math.sin(angle) * (headLen * 0.6)
+
   ctx.beginPath()
   ctx.moveTo(a.start.x, a.start.y)
-  ctx.lineTo(a.end.x, a.end.y)
+  ctx.lineTo(shaftEndX, shaftEndY)
   ctx.stroke()
 
-  ctx.fillStyle = a.color
-  ctx.beginPath()
-  ctx.moveTo(a.end.x, a.end.y)
-  ctx.lineTo(
-    a.end.x - headLen * Math.cos(angle - Math.PI / 6),
-    a.end.y - headLen * Math.sin(angle - Math.PI / 6)
-  )
-  ctx.lineTo(
-    a.end.x - headLen * Math.cos(angle + Math.PI / 6),
-    a.end.y - headLen * Math.sin(angle + Math.PI / 6)
-  )
-  ctx.closePath()
-  ctx.fill()
+  // Two head wings (always drawn the same way)
+  const x1 = a.end.x - headLen * Math.cos(angle - Math.PI / 6)
+  const y1 = a.end.y - headLen * Math.sin(angle - Math.PI / 6)
+  const x2 = a.end.x - headLen * Math.cos(angle + Math.PI / 6)
+  const y2 = a.end.y - headLen * Math.sin(angle + Math.PI / 6)
+
+  if (outline) {
+    // Open chevron — two strokes meeting at the tip
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(a.end.x, a.end.y)
+    ctx.lineTo(x2, y2)
+    ctx.stroke()
+  } else {
+    ctx.fillStyle = a.color
+    ctx.beginPath()
+    ctx.moveTo(a.end.x, a.end.y)
+    ctx.lineTo(x1, y1)
+    ctx.lineTo(x2, y2)
+    ctx.closePath()
+    ctx.fill()
+  }
 }
 
 export function renderRectangle(ctx: CanvasRenderingContext2D, a: RectangleAnnotation): void {

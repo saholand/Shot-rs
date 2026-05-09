@@ -4,6 +4,7 @@ import { useAnnotations } from './hooks/useAnnotations'
 import { AnnotationCanvas } from './AnnotationCanvas'
 import { AnnotationToolbar } from './AnnotationToolbar'
 import { compositeImage } from './render'
+import { t } from '../../shared/i18n'
 
 interface AnnotationEditorProps {
   imageDataUrl: string
@@ -38,18 +39,18 @@ export function AnnotationEditor({ imageDataUrl, onCopy, onSave, onShare, onDone
   const handleCopy = async () => {
     const result = await onCopy(getComposited())
     if (result.success) {
-      setStatus({ text: 'Panoya kopyalandı!', type: 'success' })
+      setStatus({ text: t('annotation.copiedToClipboard'), type: 'success' })
     } else {
-      setStatus({ text: result.error || 'Kopyalama başarısız', type: 'error' })
+      setStatus({ text: result.error || t('annotation.copyFailed'), type: 'error' })
     }
   }
 
   const handleSave = async () => {
     const result = await onSave(getComposited())
     if (result.success) {
-      setStatus({ text: `Kaydedildi: ${result.filePath}`, type: 'success' })
+      setStatus({ text: `${t('annotation.saved')} ${result.filePath}`, type: 'success' })
     } else if (result.error !== 'Save cancelled') {
-      setStatus({ text: result.error || 'Kaydetme başarısız', type: 'error' })
+      setStatus({ text: result.error || t('annotation.saveFailed'), type: 'error' })
     }
   }
 
@@ -60,12 +61,12 @@ export function AnnotationEditor({ imageDataUrl, onCopy, onSave, onShare, onDone
     try {
       const result = await onShare(getComposited())
       if (result.success) {
-        setStatus({ text: `Link kopyalandı: ${result.url}`, type: 'success' })
+        setStatus({ text: `${t('annotation.linkCopied')} ${result.url}`, type: 'success' })
       } else {
-        setStatus({ text: result.error || 'Upload başarısız', type: 'error' })
+        setStatus({ text: result.error || t('annotation.uploadFailed'), type: 'error' })
       }
     } catch {
-      setStatus({ text: 'Upload başarısız', type: 'error' })
+      setStatus({ text: t('annotation.uploadFailed'), type: 'error' })
     }
     setUploading(false)
   }
@@ -88,7 +89,7 @@ export function AnnotationEditor({ imageDataUrl, onCopy, onSave, onShare, onDone
         onAddAnnotation={addAnnotation}
       />
       <div className="annotation-actions">
-        <button className="ann-btn ann-btn-secondary" onClick={onDone}>Kapat</button>
+        <button className="ann-btn ann-btn-secondary" onClick={onDone}>{t('annotation.close')}</button>
         <div className="annotation-actions-right">
           {onShare && (
             <button
@@ -96,11 +97,11 @@ export function AnnotationEditor({ imageDataUrl, onCopy, onSave, onShare, onDone
               onClick={handleShare}
               disabled={uploading}
             >
-              {uploading ? 'Yükleniyor...' : 'Paylaş'}
+              {uploading ? t('annotation.uploading') : t('annotation.share')}
             </button>
           )}
-          <button className="ann-btn ann-btn-primary" onClick={handleCopy}>Kopyala</button>
-          <button className="ann-btn ann-btn-primary" onClick={handleSave}>Kaydet</button>
+          <button className="ann-btn ann-btn-primary" onClick={handleCopy}>{t('annotation.copy')}</button>
+          <button className="ann-btn ann-btn-primary" onClick={handleSave}>{t('annotation.save')}</button>
         </div>
       </div>
       {status && (

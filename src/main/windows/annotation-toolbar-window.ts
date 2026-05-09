@@ -18,16 +18,24 @@ export function createAnnotationToolbar(): BrowserWindow {
 
   const cursorPoint = screen.getCursorScreenPoint()
   const display = screen.getDisplayNearestPoint(cursorPoint)
-  const { x, y, width, height } = display.bounds
+  // Use workArea so we don't end up under the taskbar on Windows. Falls
+  // back to bounds on displays that don't expose a separate work area.
+  const area = display.workArea && display.workArea.width > 0 ? display.workArea : display.bounds
+  const { x, y, width, height } = area
 
-  // Position: bottom-center of the display
-  const toolbarX = x + Math.round((width - TOOLBAR_WIDTH) / 2)
-  const toolbarY = y + height - TOOLBAR_HEIGHT - 40
+  // Position: bottom-center of the work area, clamped so the toolbar
+  // never spills off-screen on small displays.
+  const margin = 40
+  const effectiveWidth = Math.min(TOOLBAR_WIDTH, Math.max(240, width - 16))
+  const rawX = x + Math.round((width - effectiveWidth) / 2)
+  const rawY = y + height - TOOLBAR_HEIGHT - margin
+  const toolbarX = Math.max(x + 8, Math.min(rawX, x + width - effectiveWidth - 8))
+  const toolbarY = Math.max(y + 8, Math.min(rawY, y + height - TOOLBAR_HEIGHT - 8))
 
   toolbarWindow = new BrowserWindow({
     x: toolbarX,
     y: toolbarY,
-    width: TOOLBAR_WIDTH,
+    width: effectiveWidth,
     height: TOOLBAR_HEIGHT,
     frame: false,
     transparent: true,

@@ -1283,6 +1283,25 @@ body {
   border-color: #5c7cfa;
 }
 
+/* Language select */
+.settings-select {
+  padding: 6px 10px;
+  border: 1px solid #444;
+  border-radius: 6px;
+  background: #111;
+  color: #eee;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.settings-select:focus {
+  border-color: #5c7cfa;
+}
+
 /* Separator */
 .settings-sep {
   height: 1px;

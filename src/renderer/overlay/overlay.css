@@ -408,3 +408,255 @@ html, body, #overlay-root {
 .eyedropper-hex {
   text-transform: uppercase;
 }
+
+/* ── Floating Toolbar: bar placement variants ─────── */
+
+.ft-bar-inside {
+  border-color: rgba(220, 200, 80, 0.45);
+}
+
+/* ── Color group: custom-color trigger ────────────── */
+
+.ft-color-trigger {
+  width: 22px;
+  height: 22px;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  position: relative;
+  color: rgba(255, 255, 255, 0.9);
+  background-clip: padding-box;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  transition: transform 0.1s;
+}
+
+.ft-color-trigger:hover {
+  transform: scale(1.08);
+}
+
+/* Tiny + glyph contrast ring for visibility on any color */
+.ft-color-trigger::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 0;
+}
+.ft-color-trigger > svg {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Color popover ────────────────────────────────── */
+
+.ft-color-popover {
+  z-index: 130;
+  width: 200px;
+  background: rgba(20, 20, 36, 0.97);
+  border: 1px solid rgba(79, 163, 247, 0.3);
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  animation: ft-slide-in 0.12s ease;
+}
+
+.ft-color-popover-header {
+  font-size: 11px;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.ft-color-popover-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ft-color-native {
+  width: 32px;
+  height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.ft-color-native::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+.ft-color-native::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.ft-color-hex-input {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  padding: 6px 8px;
+  color: #fff;
+  font-family: 'Consolas', 'Menlo', monospace;
+  font-size: 12px;
+  outline: none;
+  text-transform: uppercase;
+}
+.ft-color-hex-input:focus {
+  border-color: #4fa3f7;
+}
+
+.ft-color-popover-sub {
+  font-size: 10px;
+  color: #888;
+  margin: 6px 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ft-color-popover-recent {
+  display: flex;
+  gap: 6px;
+}
+
+/* ── Context sub-bar ──────────────────────────────── */
+
+.ft-subbar {
+  z-index: 99;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(20, 20, 36, 0.93);
+  border: 1px solid rgba(79, 163, 247, 0.2);
+  border-radius: 8px;
+  padding: 4px 10px;
+  height: 36px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  animation: ft-slide-in 0.12s ease 0.05s backwards;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+}
+
+.ft-sub-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.ft-sub-label {
+  font-size: 11px;
+  color: #888;
+  margin-right: 4px;
+  letter-spacing: 0.03em;
+}
+
+.ft-sub-sep {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 4px;
+}
+
+/* Stroke width selector — circle dot showing actual thickness */
+.ft-stroke-btn {
+  width: 28px;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+.ft-stroke-btn:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+.ft-stroke-active {
+  background: rgba(79, 163, 247, 0.22);
+  border-color: rgba(79, 163, 247, 0.6);
+}
+.ft-stroke-dot {
+  background: currentColor;
+  color: #cfd8e3;
+  border-radius: 50%;
+  display: block;
+}
+.ft-stroke-active .ft-stroke-dot {
+  color: #4fa3f7;
+}
+
+/* Pill button (font size, arrow head, blur intensity) */
+.ft-pill {
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: transparent;
+  color: #cfd8e3;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.1s;
+  min-width: 28px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.ft-pill:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.ft-pill-active {
+  background: rgba(79, 163, 247, 0.22);
+  color: #4fa3f7;
+  border-color: rgba(79, 163, 247, 0.6);
+}
+
+/* ── Selection magnifier loupe (selecting phase) ─── */
+
+.selection-loupe {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.selection-loupe-canvas {
+  width: 120px;
+  height: 120px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 6px;
+  image-rendering: pixelated;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
+  background: #111;
+}
+
+.selection-loupe-info {
+  font-family: 'Consolas', 'Menlo', monospace;
+  font-size: 11px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.78);
+  padding: 3px 6px;
+  border-radius: 3px;
+  text-align: center;
+  white-space: nowrap;
+}

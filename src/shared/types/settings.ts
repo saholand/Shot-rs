@@ -9,6 +9,7 @@ export interface AppSettings {
   recordingHotkey: string
   annotationHotkey: string
   ocrHotkey: string
+  language: 'tr' | 'en'
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -21,7 +22,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   screenshotHotkey: 'PrintScreen',
   recordingHotkey: 'CommandOrControl+Alt+R',
   annotationHotkey: 'CommandOrControl+Shift+D',
-  ocrHotkey: 'CommandOrControl+Shift+O'
+  ocrHotkey: 'CommandOrControl+Shift+O',
+  language: 'tr'
 }
 
 /**

@@ -5,11 +5,13 @@ import {
   closeOverlayWindow,
   getOverlayWindow,
   hideOverlayWindow,
-  showOverlayWindow
+  showOverlayWindow,
+  getOverlayDisplay
 } from '../windows/overlay-window'
 import { getMainWindow } from '../windows/main-window'
 import { captureAndCrop, captureFullScreen } from '../screenshot/capture'
 import { exportToClipboard, exportToFile } from '../screenshot/export'
+import { runRecognize } from './ocr-ipc'
 import type { SelectionRegion, ExportResult } from '../../shared/types/ipc'
 
 let lastCapturedImage: Electron.NativeImage | null = null
@@ -54,11 +56,17 @@ export function registerScreenshotIPC(): void {
     // Region selection mode: send region to main window for recording, close overlay
     if (overlayMode === 'region') {
       overlayMode = 'screenshot'
+      const display = getOverlayDisplay()
       closeOverlayWindow()
       const mainWindow = getMainWindow()
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.show()
-        mainWindow.webContents.send(IPC_CHANNELS.RECORDING_REGION_SELECTED, region)
+        // Pass display info so the recording panel can pick the right
+        // screen source and use the correct scaleFactor for canvas crop.
+        const payload = display
+          ? { region, displayId: display.id.toString(), scaleFactor: display.scaleFactor, displayBounds: display.bounds }
+          : { region, displayId: null, scaleFactor: 1, displayBounds: null }
+        mainWindow.webContents.send(IPC_CHANNELS.RECORDING_REGION_SELECTED, payload)
       }
       return
     }
@@ -66,11 +74,12 @@ export function registerScreenshotIPC(): void {
     // OCR mode: capture region → OCR → clipboard
     if (overlayMode === 'ocr') {
       overlayMode = 'screenshot'
+      const overlayDisplay = getOverlayDisplay()
       hideOverlayWindow()
       await new Promise(resolve => setTimeout(resolve, 100))
 
       try {
-        const image = await captureAndCrop(region)
+        const image = await captureAndCrop(region, overlayDisplay)
         closeOverlayWindow()
 
         if (!image || image.isEmpty()) {
@@ -86,8 +95,7 @@ export function registerScreenshotIPC(): void {
           return
         }
         const w = await ocrWorkerGetter()
-        const result = await w.recognize(dataUrl)
-        const text = result.data.text.trim()
+        const { text } = await runRecognize(w, dataUrl)
 
         if (!text) {
           showOCRNotification('Metin bulunamadı', false)
@@ -106,14 +114,15 @@ export function registerScreenshotIPC(): void {
     }
 
     const overlay = getOverlayWindow()
+    const overlayDisplay = getOverlayDisplay()
 
     // Hide overlay for clean capture
     hideOverlayWindow()
     await new Promise(resolve => setTimeout(resolve, 100))
 
-    let result: { full: Electron.NativeImage; cropped: Electron.NativeImage; scaleFactor: number } | null = null
+    let result: Awaited<ReturnType<typeof captureFullScreen>> = null
     try {
-      result = await captureFullScreen(region)
+      result = await captureFullScreen(region, overlayDisplay)
     } catch (err) {
       closeOverlayWindow()
       const message = err instanceof Error ? err.message : 'Capture failed'
@@ -167,7 +176,7 @@ export function registerScreenshotIPC(): void {
   // Manual capture from renderer
   ipcMain.handle(IPC_CHANNELS.SCREENSHOT_CAPTURE, async (_event, region: SelectionRegion) => {
     try {
-      const image = await captureAndCrop(region)
+      const image = await captureAndCrop(region, getOverlayDisplay())
       if (image && !image.isEmpty()) {
         lastCapturedImage = image
         return image.toDataURL()

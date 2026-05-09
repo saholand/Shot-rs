@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { AppSettings } from '../../shared/types/settings'
 import { DEFAULT_SETTINGS } from '../../shared/types/settings'
+import { useTranslation } from '../hooks/useTranslation'
+import { setLanguage as setI18nLanguage } from '../../shared/i18n'
 
 interface Props {
   onBack: () => void
@@ -53,11 +55,12 @@ function formatAccelerator(acc: string): string {
     .replace(/\+/g, ' + ')
 }
 
-function HotkeyInput({ value, onChange, label, desc }: {
+function HotkeyInput({ value, onChange, label, desc, pressKeyText }: {
   value: string
   onChange: (val: string) => void
   label: string
   desc: string
+  pressKeyText: string
 }) {
   const [listening, setListening] = useState(false)
 
@@ -95,7 +98,7 @@ function HotkeyInput({ value, onChange, label, desc }: {
         onClick={() => setListening(true)}
         onBlur={() => setListening(false)}
       >
-        {listening ? 'Bir tuş kombinasyonu basın...' : formatAccelerator(value)}
+        {listening ? pressKeyText : formatAccelerator(value)}
       </button>
     </div>
   )
@@ -106,6 +109,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 }
 
 export function SettingsPanel({ onBack }: Props) {
+  const { t, language, setLanguage } = useTranslation()
   const [settings, setSettings] = useState<AppSettings>({ ...DEFAULT_SETTINGS })
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState<StatusMessage | null>(null)
@@ -114,6 +118,8 @@ export function SettingsPanel({ onBack }: Props) {
   useEffect(() => {
     window.electronAPI.settings.get().then((s) => {
       setSettings(s)
+      // Sync i18n language with saved setting
+      if (s.language) setI18nLanguage(s.language)
       setLoading(false)
     })
   }, [])
@@ -131,6 +137,11 @@ export function SettingsPanel({ onBack }: Props) {
     setStatus(null)
   }
 
+  const handleLanguageChange = (lang: 'tr' | 'en') => {
+    update('language', lang)
+    setLanguage(lang)
+  }
+
   const handleSelectDir = async () => {
     const dir = await window.electronAPI.settings.selectDir()
     if (dir) update('defaultSaveDir', dir)
@@ -141,13 +152,13 @@ export function SettingsPanel({ onBack }: Props) {
   const handleSave = async () => {
     await window.electronAPI.settings.save(settings)
     setDirty(false)
-    setStatus({ text: 'Ayarlar kaydedildi', type: 'success' })
+    setStatus({ text: t('settings.settingsSaved'), type: 'success' })
   }
 
   if (loading) {
     return (
       <div className="panel">
-        <p>Yükleniyor...</p>
+        <p>{t('settings.loading')}</p>
       </div>
     )
   }
@@ -156,44 +167,63 @@ export function SettingsPanel({ onBack }: Props) {
     <div className="panel settings-panel">
       <div className="settings-list">
 
-        {/* ── Kısayollar ── */}
-        <SectionTitle>Kısayollar</SectionTitle>
+        {/* ── Shortcuts ── */}
+        <SectionTitle>{t('settings.shortcuts')}</SectionTitle>
 
         <HotkeyInput
           value={settings.screenshotHotkey}
           onChange={(v) => update('screenshotHotkey', v)}
-          label="Ekran görüntüsü"
-          desc="Ekran yakalamayı başlatır"
+          label={t('settings.screenshotHotkey')}
+          desc={t('settings.screenshotHotkeyDesc')}
+          pressKeyText={t('settings.pressKey')}
         />
 
         <HotkeyInput
           value={settings.recordingHotkey}
           onChange={(v) => update('recordingHotkey', v)}
-          label="Ekran kaydı"
-          desc="Kayıt başlatır / durdurur"
+          label={t('settings.recordingHotkey')}
+          desc={t('settings.recordingHotkeyDesc')}
+          pressKeyText={t('settings.pressKey')}
         />
 
         <HotkeyInput
           value={settings.annotationHotkey}
           onChange={(v) => update('annotationHotkey', v)}
-          label="Çizim modu"
-          desc="Kayıt sırasında çizim aç/kapat"
+          label={t('settings.drawModeHotkey')}
+          desc={t('settings.drawModeHotkeyDesc')}
+          pressKeyText={t('settings.pressKey')}
         />
 
         <HotkeyInput
           value={settings.ocrHotkey}
           onChange={(v) => update('ocrHotkey', v)}
-          label="OCR (metin tanıma)"
-          desc="Ekrandan alan seç → metin panoya kopyalansın"
+          label={t('settings.ocrHotkey')}
+          desc={t('settings.ocrHotkeyDesc')}
+          pressKeyText={t('settings.pressKey')}
         />
 
-        {/* ── Genel ── */}
-        <SectionTitle>Genel</SectionTitle>
+        {/* ── General ── */}
+        <SectionTitle>{t('settings.general')}</SectionTitle>
 
         <div className="settings-item">
           <div className="settings-item-info">
-            <span className="settings-item-label">Kapatınca tray'de kal</span>
-            <span className="settings-item-desc">Pencere kapatıldığında arka planda çalışmaya devam eder</span>
+            <span className="settings-item-label">{t('settings.language')}</span>
+            <span className="settings-item-desc">{t('settings.languageDesc')}</span>
+          </div>
+          <select
+            className="settings-select"
+            value={settings.language || 'tr'}
+            onChange={(e) => handleLanguageChange(e.target.value as 'tr' | 'en')}
+          >
+            <option value="tr">Türkçe</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+
+        <div className="settings-item">
+          <div className="settings-item-info">
+            <span className="settings-item-label">{t('settings.closeToTray')}</span>
+            <span className="settings-item-desc">{t('settings.closeToTrayDesc')}</span>
           </div>
           <label className="settings-toggle">
             <input
@@ -207,8 +237,8 @@ export function SettingsPanel({ onBack }: Props) {
 
         <div className="settings-item">
           <div className="settings-item-info">
-            <span className="settings-item-label">Hızlı kayıt modu</span>
-            <span className="settings-item-desc">Kısayolla UI göstermeden doğrudan kayıt başlat</span>
+            <span className="settings-item-label">{t('settings.quickRecord')}</span>
+            <span className="settings-item-desc">{t('settings.quickRecordDesc')}</span>
           </div>
           <label className="settings-toggle">
             <input
@@ -220,27 +250,27 @@ export function SettingsPanel({ onBack }: Props) {
           </label>
         </div>
 
-        {/* ── Dosya Ayarları ── */}
-        <SectionTitle>Dosya Ayarları</SectionTitle>
+        {/* ── File Settings ── */}
+        <SectionTitle>{t('settings.fileSettings')}</SectionTitle>
 
         <div className="settings-item settings-item-col">
-          <span className="settings-item-label">Varsayılan kayıt klasörü</span>
-          <span className="settings-item-desc">Boş bırakılırsa her seferinde sorulur</span>
+          <span className="settings-item-label">{t('settings.defaultSaveDir')}</span>
+          <span className="settings-item-desc">{t('settings.defaultSaveDirDesc')}</span>
           <div className="settings-dir-row">
             <span className="settings-dir-path">
-              {settings.defaultSaveDir || '(Belirtilmemiş)'}
+              {settings.defaultSaveDir || t('settings.notSpecified')}
             </span>
-            <button className="settings-dir-btn" onClick={handleSelectDir}>Seç</button>
+            <button className="settings-dir-btn" onClick={handleSelectDir}>{t('settings.select')}</button>
             {settings.defaultSaveDir && (
-              <button className="settings-dir-btn settings-dir-clear" onClick={handleClearDir}>Temizle</button>
+              <button className="settings-dir-btn settings-dir-clear" onClick={handleClearDir}>{t('settings.clearDir')}</button>
             )}
           </div>
         </div>
 
         <div className="settings-item settings-item-col">
-          <span className="settings-item-label">Ekran görüntüsü dosya adı</span>
+          <span className="settings-item-label">{t('settings.screenshotFileName')}</span>
           <span className="settings-item-desc">
-            Yer tutucular: {'{timestamp}'}, {'{date}'}, {'{time}'}
+            {t('settings.placeholders')} {'{timestamp}'}, {'{date}'}, {'{time}'}
           </span>
           <input
             className="settings-input"
@@ -251,9 +281,9 @@ export function SettingsPanel({ onBack }: Props) {
         </div>
 
         <div className="settings-item settings-item-col">
-          <span className="settings-item-label">Ekran kaydı dosya adı</span>
+          <span className="settings-item-label">{t('settings.recordingFileName')}</span>
           <span className="settings-item-desc">
-            Yer tutucular: {'{timestamp}'}, {'{date}'}, {'{time}'}
+            {t('settings.placeholders')} {'{timestamp}'}, {'{date}'}, {'{time}'}
           </span>
           <input
             className="settings-input"
@@ -263,13 +293,13 @@ export function SettingsPanel({ onBack }: Props) {
           />
         </div>
 
-        {/* ── Gelişmiş ── */}
-        <SectionTitle>Gelişmiş</SectionTitle>
+        {/* ── Advanced ── */}
+        <SectionTitle>{t('settings.advanced')}</SectionTitle>
 
         <div className="settings-item settings-item-col">
-          <span className="settings-item-label">Upload sunucu adresi</span>
+          <span className="settings-item-label">{t('settings.uploadServer')}</span>
           <span className="settings-item-desc">
-            Paylaşım özelliği için sunucu adresi
+            {t('settings.uploadServerDesc')}
           </span>
           <input
             className="settings-input"
@@ -287,12 +317,12 @@ export function SettingsPanel({ onBack }: Props) {
           onClick={handleSave}
           disabled={!dirty}
         >
-          {dirty ? 'Kaydet' : 'Kaydedildi'}
+          {dirty ? t('settings.save') : t('settings.saved')}
         </button>
         {status && (
           <span className={`settings-status status-${status.type}`}>{status.text}</span>
         )}
-        <span className="settings-version">Shotırs v1.0.0</span>
+        <span className="settings-version">Shotirs v1.0.0</span>
       </div>
     </div>
   )

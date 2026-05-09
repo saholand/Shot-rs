@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import type { HistoryEntry } from '../../shared/types/history'
 import { videoToGif } from '../utils/gif-encoder'
+import { useTranslation } from '../hooks/useTranslation'
+import { t as i18nT } from '../../shared/i18n'
 
 interface Props {
   onBack: () => void
@@ -16,17 +18,17 @@ type Filter = 'all' | 'screenshot' | 'recording'
 function relativeTime(timestamp: number): string {
   const diff = Date.now() - timestamp
   const sec = Math.floor(diff / 1000)
-  if (sec < 60) return 'az önce'
+  if (sec < 60) return i18nT('history.timeJustNow')
   const min = Math.floor(sec / 60)
-  if (min < 60) return `${min} dk önce`
+  if (min < 60) return i18nT('history.timeMinutes', { count: min })
   const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr} saat önce`
+  if (hr < 24) return i18nT('history.timeHours', { count: hr })
   const day = Math.floor(hr / 24)
-  if (day === 1) return 'dün'
-  if (day < 30) return `${day} gün önce`
+  if (day === 1) return i18nT('history.timeYesterday')
+  if (day < 30) return i18nT('history.timeDays', { count: day })
   const month = Math.floor(day / 30)
-  if (month < 12) return `${month} ay önce`
-  return `${Math.floor(month / 12)} yıl önce`
+  if (month < 12) return i18nT('history.timeMonths', { count: month })
+  return i18nT('history.timeYears', { count: Math.floor(month / 12) })
 }
 
 function fullDate(timestamp: number): string {
@@ -105,6 +107,7 @@ const IconLoading = () => (
 )
 
 export function HistoryPanel({ onBack }: Props) {
+  const { t } = useTranslation()
   const [entries, setEntries] = useState<HistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState<StatusMessage | null>(null)
@@ -120,7 +123,7 @@ export function HistoryPanel({ onBack }: Props) {
       const data = await window.electronAPI.history.getAll()
       setEntries(data)
     } catch {
-      setStatus({ text: 'Geçmiş yüklenemedi', type: 'error' })
+      setStatus({ text: t('history.loadFailed'), type: 'error' })
     }
     setLoading(false)
   }
@@ -132,14 +135,14 @@ export function HistoryPanel({ onBack }: Props) {
   // Auto-dismiss status after 3s
   useEffect(() => {
     if (!status) return
-    const t = setTimeout(() => setStatus(null), 3000)
-    return () => clearTimeout(t)
+    const timer = setTimeout(() => setStatus(null), 3000)
+    return () => clearTimeout(timer)
   }, [status])
 
   const handleOpen = async (entry: HistoryEntry) => {
     const result = await window.electronAPI.history.openFile(entry.filePath)
     if (!result.success) {
-      setStatus({ text: result.error || 'Dosya açılamadı', type: 'error' })
+      setStatus({ text: result.error || t('history.fileOpenFailed'), type: 'error' })
     }
   }
 
@@ -147,9 +150,9 @@ export function HistoryPanel({ onBack }: Props) {
     if (entry.type !== 'screenshot') return
     const result = await window.electronAPI.history.copyFile(entry.filePath)
     if (result.success) {
-      setStatus({ text: 'Panoya kopyalandı!', type: 'success' })
+      setStatus({ text: t('history.copiedToClipboard'), type: 'success' })
     } else {
-      setStatus({ text: result.error || 'Kopyalama başarısız', type: 'error' })
+      setStatus({ text: result.error || t('history.copyFailed'), type: 'error' })
     }
   }
 
@@ -171,19 +174,19 @@ export function HistoryPanel({ onBack }: Props) {
         setEntries((prev) =>
           prev.map((e) => (e.id === entry.id ? { ...e, shareUrl: result.url } : e))
         )
-        setStatus({ text: 'Link kopyalandı!', type: 'success' })
+        setStatus({ text: t('history.linkCopied'), type: 'success' })
       } else {
-        setStatus({ text: result.error || 'Upload başarısız', type: 'error' })
+        setStatus({ text: result.error || t('history.uploadFailed'), type: 'error' })
       }
     } catch {
-      setStatus({ text: 'Upload başarısız', type: 'error' })
+      setStatus({ text: t('history.uploadFailed'), type: 'error' })
     }
     setUploadingId(null)
   }
 
   const handleCopyLink = (url: string) => {
     navigator.clipboard.writeText(url)
-    setStatus({ text: 'Link kopyalandı!', type: 'success' })
+    setStatus({ text: t('history.linkCopied'), type: 'success' })
   }
 
   const handleClearAll = async () => {
@@ -194,7 +197,7 @@ export function HistoryPanel({ onBack }: Props) {
     await window.electronAPI.history.clear()
     setEntries([])
     setConfirmClear(false)
-    setStatus({ text: 'Geçmiş temizlendi', type: 'info' })
+    setStatus({ text: t('history.cleared'), type: 'info' })
   }
 
   const handleGifExport = async (entry: HistoryEntry) => {
@@ -215,16 +218,16 @@ export function HistoryPanel({ onBack }: Props) {
       const result = await window.electronAPI.history.saveBuffer(gifData.buffer, gifName)
 
       if (result.success) {
-        setStatus({ text: 'GIF kaydedildi!', type: 'success' })
+        setStatus({ text: t('history.gifSaved'), type: 'success' })
       } else if (result.error === 'İptal edildi') {
-        setStatus({ text: 'GIF kaydetme iptal edildi', type: 'info' })
+        setStatus({ text: t('history.gifCancelled'), type: 'info' })
       } else {
-        setStatus({ text: result.error || 'GIF hatası', type: 'error' })
+        setStatus({ text: result.error || t('history.gifError'), type: 'error' })
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Bilinmeyen hata'
+      const msg = err instanceof Error ? err.message : t('gif.unknown')
       console.error('GIF export error:', err)
-      setStatus({ text: `GIF hatası: ${msg}`, type: 'error' })
+      setStatus({ text: `${t('history.gifError')}: ${msg}`, type: 'error' })
     }
     setGifExportingId(null)
     setGifProgress(0)
@@ -244,7 +247,7 @@ export function HistoryPanel({ onBack }: Props) {
             className={`history-filter-btn ${filter === 'all' ? 'history-filter-active' : ''}`}
             onClick={() => setFilter('all')}
           >
-            Tümü ({entries.length})
+            {t('history.all')} ({entries.length})
           </button>
           <button
             className={`history-filter-btn ${filter === 'screenshot' ? 'history-filter-active' : ''}`}
@@ -265,7 +268,7 @@ export function HistoryPanel({ onBack }: Props) {
             onClick={handleClearAll}
             onBlur={() => setConfirmClear(false)}
           >
-            {confirmClear ? 'Emin misin?' : 'Temizle'}
+            {confirmClear ? t('history.confirmClear') : t('history.clear')}
           </button>
         )}
       </div>
@@ -293,10 +296,10 @@ export function HistoryPanel({ onBack }: Props) {
             <path d="M8 5V3h8v2" />
           </svg>
           <span className="history-empty-title">
-            {filter === 'all' ? 'Henüz yakalama yok' : filter === 'screenshot' ? 'Ekran görüntüsü yok' : 'Kayıt yok'}
+            {filter === 'all' ? t('history.emptyAll') : filter === 'screenshot' ? t('history.emptyScreenshot') : t('history.emptyRecording')}
           </span>
           <span className="history-empty-desc">
-            {filter === 'all' ? 'PrintScreen ile ekran görüntüsü alarak başla' : 'Bu kategoride henüz bir öğe yok'}
+            {filter === 'all' ? t('history.emptyDesc') : t('history.emptyCategoryDesc')}
           </span>
         </div>
       )}
@@ -319,7 +322,7 @@ export function HistoryPanel({ onBack }: Props) {
                 <span className="history-filename">{entry.fileName}</span>
                 <span className="history-meta">
                   <span className={`history-badge history-badge-${entry.type}`}>
-                    {entry.type === 'screenshot' ? 'Görüntü' : 'Kayıt'}
+                    {entry.type === 'screenshot' ? t('history.badgeScreenshot') : t('history.badgeRecording')}
                   </span>
                   <span className="history-time" title={fullDate(entry.timestamp)}>
                     {relativeTime(entry.timestamp)}
@@ -331,7 +334,7 @@ export function HistoryPanel({ onBack }: Props) {
                   <button
                     className="history-action-btn history-share-btn"
                     onClick={() => handleCopyLink(entry.shareUrl!)}
-                    title="Linki kopyala"
+                    title={t('history.copyLink')}
                   >
                     <IconLink />
                   </button>
@@ -340,7 +343,7 @@ export function HistoryPanel({ onBack }: Props) {
                     className="history-action-btn history-share-btn"
                     onClick={() => handleShare(entry)}
                     disabled={uploadingId === entry.id}
-                    title="Paylaş"
+                    title={t('history.share')}
                   >
                     {uploadingId === entry.id ? <IconLoading /> : <IconShare />}
                   </button>
@@ -349,7 +352,7 @@ export function HistoryPanel({ onBack }: Props) {
                   <button
                     className="history-action-btn history-copy-btn"
                     onClick={() => handleCopyToClipboard(entry)}
-                    title="Panoya kopyala"
+                    title={t('history.copyToClipboard')}
                   >
                     <IconCopy />
                   </button>
@@ -359,7 +362,7 @@ export function HistoryPanel({ onBack }: Props) {
                     className="history-action-btn history-gif-btn"
                     onClick={() => handleGifExport(entry)}
                     disabled={gifExportingId === entry.id}
-                    title="GIF olarak dışa aktar"
+                    title={t('history.exportGif')}
                   >
                     {gifExportingId === entry.id ? (
                       <span className="history-gif-progress">{gifProgress}%</span>
@@ -371,21 +374,21 @@ export function HistoryPanel({ onBack }: Props) {
                 <button
                   className="history-action-btn"
                   onClick={() => handleOpen(entry)}
-                  title="Aç"
+                  title={t('history.open')}
                 >
                   <IconPlay />
                 </button>
                 <button
                   className="history-action-btn"
                   onClick={() => handleShowInFolder(entry)}
-                  title="Klasörde göster"
+                  title={t('history.showInFolder')}
                 >
                   <IconFolder />
                 </button>
                 <button
                   className="history-action-btn history-delete-btn"
                   onClick={() => handleDelete(entry)}
-                  title="Listeden kaldır"
+                  title={t('history.removeFromList')}
                 >
                   <IconTrash />
                 </button>

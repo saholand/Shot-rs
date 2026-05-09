@@ -19,6 +19,7 @@ export const IPC_CHANNELS = {
   OVERLAY_SELECTION_DONE: 'overlay:selection-done',
   OVERLAY_CANCELLED: 'overlay:cancelled',
   OVERLAY_CAPTURED: 'overlay:captured',
+  OVERLAY_BACKGROUND: 'overlay:background',
   SCREEN_BOUNDS: 'screen-bounds',
 
   // Screenshot result (main → renderer)

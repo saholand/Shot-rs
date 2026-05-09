@@ -5,7 +5,9 @@ import { renderAll } from '../annotation/render'
 import { SelectionCanvas } from './SelectionCanvas'
 import { EditingCanvas } from './EditingCanvas'
 import { FloatingToolbar } from './FloatingToolbar'
+import { SelectionMagnifier } from './SelectionMagnifier'
 import { MIN_SELECTION_SIZE } from '../../shared/constants'
+import { t } from '../../shared/i18n'
 import type { SelectionRegion } from '../../shared/types/ipc'
 
 type Phase = 'selecting' | 'capturing' | 'editing'
@@ -46,12 +48,21 @@ export function OverlayApp() {
   const [status, setStatus] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
   const imageRef = useRef<HTMLImageElement | null>(null)
 
+  // Pre-captured screen background for the selection-phase magnifier loupe
+  const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null)
+  const [bgScaleFactor, setBgScaleFactor] = useState(1)
+  const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null)
+  const [cursorInWindow, setCursorInWindow] = useState(false)
+
   // Resize handle drag state
   const [activeHandle, setActiveHandle] = useState<HandleId | null>(null)
   const handleDragStartRef = useRef<{ x: number; y: number } | null>(null)
   const handleInitialRegionRef = useRef<SelectionRegion | null>(null)
 
-  const { annotations, activeTool, activeColor, addAnnotation, moveAnnotation, undo, setTool, setColor } = useAnnotations()
+  const {
+    annotations, activeTool, activeColor, recentColors, options,
+    addAnnotation, moveAnnotation, undo, setTool, setColor, setOptions
+  } = useAnnotations()
 
   // Auto-confirm on selection done (back to original behavior)
   const handleSelectionDone = useCallback((region: SelectionRegion) => {
@@ -77,6 +88,36 @@ export function OverlayApp() {
     })
     return () => window.overlayAPI.removeCapturedListener()
   }, [])
+
+  // Pre-captured background → enables the selection magnifier
+  useEffect(() => {
+    window.overlayAPI.onBackground((bgDataUrl: string, sf: number) => {
+      const img = new Image()
+      img.onload = () => setBgImage(img)
+      img.src = bgDataUrl
+      setBgScaleFactor(sf)
+    })
+    return () => window.overlayAPI.removeBackgroundListener()
+  }, [])
+
+  // Track cursor position in window-local DIPs for the magnifier
+  useEffect(() => {
+    if (phase !== 'selecting') {
+      setCursorInWindow(false)
+      return
+    }
+    const onMove = (e: MouseEvent) => {
+      setCursorPos({ x: e.clientX, y: e.clientY })
+      setCursorInWindow(true)
+    }
+    const onLeave = () => setCursorInWindow(false)
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseleave', onLeave)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseleave', onLeave)
+    }
+  }, [phase])
 
   // Get composited image (base + annotations)
   const getComposited = useCallback((): string => {
@@ -188,20 +229,20 @@ export function OverlayApp() {
   const handleCopy = useCallback(async () => {
     const result = await window.overlayAPI.copyFinal(getComposited())
     if (result.success) {
-      setStatus({ text: 'Kopyalandı!', type: 'success' })
+      setStatus({ text: t('overlay.copied'), type: 'success' })
       setTimeout(() => window.overlayAPI.sendCancel(), 600)
     } else {
-      setStatus({ text: result.error || 'Kopyalama başarısız', type: 'error' })
+      setStatus({ text: result.error || t('overlay.copyFailed'), type: 'error' })
     }
   }, [getComposited])
 
   const handleSave = useCallback(async () => {
     const result = await window.overlayAPI.saveFinal(getComposited())
     if (result.success) {
-      setStatus({ text: 'Kaydedildi!', type: 'success' })
+      setStatus({ text: t('overlay.saved'), type: 'success' })
       setTimeout(() => window.overlayAPI.sendCancel(), 600)
     } else if (result.error !== 'Save cancelled') {
-      setStatus({ text: result.error || 'Kaydetme başarısız', type: 'error' })
+      setStatus({ text: result.error || t('overlay.saveFailed'), type: 'error' })
     }
   }, [getComposited])
 
@@ -211,34 +252,34 @@ export function OverlayApp() {
     try {
       const result = await window.overlayAPI.uploadScreenshot(getComposited())
       if (result.success && result.url) {
-        setStatus({ text: 'Link kopyalandı!', type: 'success' })
+        setStatus({ text: t('overlay.linkCopied'), type: 'success' })
         setTimeout(() => window.overlayAPI.sendCancel(), 1200)
       } else {
-        setStatus({ text: result.error || 'Yükleme başarısız', type: 'error' })
+        setStatus({ text: result.error || t('overlay.uploadFailed'), type: 'error' })
       }
     } catch {
-      setStatus({ text: 'Yükleme başarısız', type: 'error' })
+      setStatus({ text: t('overlay.uploadFailed'), type: 'error' })
     }
     setUploading(false)
   }, [getComposited])
 
   const handleOCRRegion = useCallback(async (regionDataUrl: string) => {
     setTool(null)
-    setStatus({ text: 'OCR taranıyor...', type: 'success' })
+    setStatus({ text: t('overlay.ocrScanning'), type: 'success' })
     try {
       const result = await window.overlayAPI.ocrRecognize(regionDataUrl)
       if (result.success && result.text) {
         await navigator.clipboard.writeText(result.text)
-        setStatus({ text: 'Metin kopyalandı!', type: 'success' })
+        setStatus({ text: t('overlay.textCopied'), type: 'success' })
       } else if (result.error) {
-        setStatus({ text: `OCR hata: ${result.error.slice(0, 60)}`, type: 'error' })
+        setStatus({ text: `${t('overlay.ocrError')} ${result.error.slice(0, 60)}`, type: 'error' })
       } else {
-        setStatus({ text: 'Metin bulunamadı', type: 'error' })
+        setStatus({ text: t('overlay.textNotFound'), type: 'error' })
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       console.error('OCR error:', err)
-      setStatus({ text: `OCR hata: ${msg.slice(0, 60)}`, type: 'error' })
+      setStatus({ text: `${t('overlay.ocrError')} ${msg.slice(0, 60)}`, type: 'error' })
     }
   }, [setTool])
 
@@ -247,7 +288,7 @@ export function OverlayApp() {
     setTool(null)
     try {
       await navigator.clipboard.writeText(hex)
-      setStatus({ text: `${hex} kopyalandı`, type: 'success' })
+      setStatus({ text: `${hex} ${t('overlay.colorCopied')}`, type: 'success' })
     } catch {
       setStatus({ text: hex, type: 'success' })
     }
@@ -319,6 +360,7 @@ export function OverlayApp() {
           annotations={annotations}
           activeTool={activeTool}
           activeColor={activeColor}
+          options={options}
           onAddAnnotation={addAnnotation}
           onMoveAnnotation={moveAnnotation}
           onFrameMove={handleFrameMove}
@@ -348,7 +390,10 @@ export function OverlayApp() {
           activeTool={activeTool}
           onToolChange={setTool}
           activeColor={activeColor}
+          recentColors={recentColors}
           onColorChange={setColor}
+          options={options}
+          onOptionsChange={setOptions}
           onUndo={undo}
           canUndo={annotations.length > 0}
           onCopy={handleCopy}
@@ -372,6 +417,10 @@ export function OverlayApp() {
   }
 
   // Selecting phase — normal selection flow
+  const sizeText = region && region.width > 0 && region.height > 0
+    ? `${Math.round(region.width)} × ${Math.round(region.height)}`
+    : undefined
+
   return (
     <div
       className="overlay-container"
@@ -380,6 +429,16 @@ export function OverlayApp() {
       onMouseUp={handlers.onMouseUp}
     >
       <SelectionCanvas region={region} isSelecting={isSelecting} />
+      {cursorPos && (
+        <SelectionMagnifier
+          bgImage={bgImage}
+          scaleFactor={bgScaleFactor}
+          cursorX={cursorPos.x}
+          cursorY={cursorPos.y}
+          visible={cursorInWindow}
+          sizeText={sizeText}
+        />
+      )}
     </div>
   )
 }

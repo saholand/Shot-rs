@@ -16,6 +16,8 @@ export interface ArrowAnnotation extends BaseAnnotation {
   type: 'arrow'
   start: Point
   end: Point
+  /** 'filled' (solid triangle, default) or 'outline' (open chevron). */
+  headStyle?: 'filled' | 'outline'
 }
 
 export interface RectangleAnnotation extends BaseAnnotation {

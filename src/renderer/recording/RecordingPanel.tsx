@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { SourcePicker } from './SourcePicker'
-import type { DesktopSource, SelectionRegion } from '../../shared/types/ipc'
+import { useTranslation } from '../hooks/useTranslation'
+import type { DesktopSource, SelectionRegion, RecordingRegionPayload } from '../../shared/types/ipc'
 
 interface RecordingPanelProps {
   onBack: () => void
@@ -25,6 +26,7 @@ function getSupportedMime(): string {
 }
 
 export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compact }: RecordingPanelProps) {
+  const { t } = useTranslation()
   const [sources, setSources] = useState<DesktopSource[]>([])
   const [selectedSource, setSelectedSource] = useState<DesktopSource | null>(null)
   const [phase, setPhase] = useState<Phase>('pick')
@@ -46,10 +48,12 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
   const isPausedRef = useRef(false)
   const isQuickModeRef = useRef(false)
   const cropRegionRef = useRef<SelectionRegion | null>(null)
+  const cropScaleFactorRef = useRef<number>(1)
   const cropVideoRef = useRef<HTMLVideoElement | null>(null)
   const cropAnimRef = useRef<number | null>(null)
+  const cropStreamRef = useRef<MediaStream | null>(null)
   const pendingWritesRef = useRef<Promise<void>[]>([])
-  const handleStartRef = useRef<(overrideSource?: DesktopSource, region?: SelectionRegion, isQuick?: boolean) => Promise<void>>()
+  const handleStartRef = useRef<(overrideSource?: DesktopSource, region?: SelectionRegion, isQuick?: boolean, scaleFactor?: number) => Promise<void>>()
 
   // Load sources
   const loadSources = useCallback(async () => {
@@ -113,14 +117,22 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
 
   // Listen for region selection result
   useEffect(() => {
-    window.electronAPI.recording.onRegionSelected(async (region: SelectionRegion) => {
+    window.electronAPI.recording.onRegionSelected(async (payload: RecordingRegionPayload) => {
+      const { region, displayId, scaleFactor } = payload
       cropRegionRef.current = region
-      // Find the first screen source and auto-start recording with it
+      cropScaleFactorRef.current = scaleFactor || 1
+      // Pick the screen source matching the display the region was selected on.
+      // Falling back to the first 'screen:' source captures the wrong monitor
+      // on multi-display setups.
       const allSources = await window.electronAPI.recording.getSources()
-      const screenSource = allSources.find(s => s.id.startsWith('screen:'))
+      const screenSources = allSources.filter(s => s.id.startsWith('screen:'))
+      const matched = displayId
+        ? screenSources.find(s => s.id.includes(displayId)) ?? null
+        : null
+      const screenSource = matched ?? screenSources[0]
       if (screenSource) {
         setSelectedSource(screenSource)
-        handleStartRef.current?.(screenSource, region)
+        handleStartRef.current?.(screenSource, region, false, scaleFactor)
       }
     })
     return () => window.electronAPI.recording.removeRegionSelectedListener()
@@ -129,6 +141,14 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      if (cropAnimRef.current) {
+        cancelAnimationFrame(cropAnimRef.current)
+        cropAnimRef.current = null
+      }
+      if (cropStreamRef.current) {
+        cropStreamRef.current.getTracks().forEach(t => t.stop())
+        cropStreamRef.current = null
+      }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(t => t.stop())
       }
@@ -144,7 +164,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
     return `${m}:${s}`
   }
 
-  const handleStartRecording = async (overrideSource?: DesktopSource, region?: SelectionRegion, isQuick?: boolean) => {
+  const handleStartRecording = async (overrideSource?: DesktopSource, region?: SelectionRegion, isQuick?: boolean, displayScaleFactor?: number) => {
     const source = overrideSource || selectedSource
     if (!source) return
 
@@ -155,7 +175,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
 
     const mimeType = getSupportedMime()
     if (!mimeType) {
-      setStatus({ text: 'Desteklenen video codec bulunamadı', type: 'error' })
+      setStatus({ text: t('recording.noCodec'), type: 'error' })
       return
     }
 
@@ -163,7 +183,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
       const useMic = isQuick ? false : micEnabled
       const startResult = await window.electronAPI.recording.startRecording(source.id, source.name, useMic)
       if (!startResult.success) {
-        setStatus({ text: startResult.error || 'Başlatma başarısız', type: 'error' })
+        setStatus({ text: startResult.error || t('recording.startFailed'), type: 'error' })
         return
       }
 
@@ -182,12 +202,13 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
       let recordStream: MediaStream
 
       if (cropRegion) {
-        // Canvas cropping pipeline: crop each frame to the selected region
-        const dpr = window.devicePixelRatio || 1
-        const sx = Math.round(cropRegion.x * dpr)
-        const sy = Math.round(cropRegion.y * dpr)
-        const cw = Math.round(cropRegion.width * dpr)
-        const ch = Math.round(cropRegion.height * dpr)
+        // Canvas cropping pipeline: crop each frame to the selected region.
+        // The desktop video stream is delivered at the source display's
+        // PHYSICAL pixel resolution, not at the recording renderer's DPR.
+        // Using `window.devicePixelRatio` here would be wrong whenever the
+        // main window lives on a display with a different scale factor than
+        // the recorded display. Use the scale factor passed in from main.
+        const sf = displayScaleFactor || cropScaleFactorRef.current || window.devicePixelRatio || 1
 
         const video = document.createElement('video')
         video.srcObject = desktopStream
@@ -199,7 +220,18 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
           video.onloadedmetadata = () => resolve()
           if (video.readyState >= 1) resolve()
         })
-        video.play()
+        await video.play().catch(() => { /* autoplay may need a tick */ })
+
+        // Clamp the source rect against the actual video dimensions so a
+        // rounding drift between (logical * sf) and the native frame size
+        // doesn't push us out of bounds.
+        const vw = video.videoWidth || Math.round(cropRegion.width * sf)
+        const vh = video.videoHeight || Math.round(cropRegion.height * sf)
+
+        const sx = Math.max(0, Math.round(cropRegion.x * sf))
+        const sy = Math.max(0, Math.round(cropRegion.y * sf))
+        const cw = Math.max(1, Math.min(Math.round(cropRegion.width * sf), vw - sx))
+        const ch = Math.max(1, Math.min(Math.round(cropRegion.height * sf), vh - sy))
 
         const canvas = document.createElement('canvas')
         canvas.width = cw
@@ -208,12 +240,15 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
 
         // Start frame loop
         const drawFrame = () => {
-          ctx.drawImage(video, sx, sy, cw, ch, 0, 0, cw, ch)
+          try {
+            ctx.drawImage(video, sx, sy, cw, ch, 0, 0, cw, ch)
+          } catch { /* video not ready yet */ }
           cropAnimRef.current = requestAnimationFrame(drawFrame)
         }
         drawFrame()
 
         recordStream = canvas.captureStream(30)
+        cropStreamRef.current = recordStream
       } else {
         recordStream = desktopStream
       }
@@ -228,7 +263,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
           micStream.getAudioTracks().forEach(t => combinedStream.addTrack(t))
           setMicActive(true)
         } catch {
-          setStatus({ text: 'Mikrofon kullanılamıyor — ses olmadan kaydediliyor', type: 'info' })
+          setStatus({ text: t('recording.micUnavailable'), type: 'info' })
         }
       }
 
@@ -239,7 +274,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
       // Initialize temp file for crash-safe recording
       const initResult = await window.electronAPI.recording.initTemp(mimeType, source.name)
       if (!initResult.success) {
-        setStatus({ text: initResult.error || 'Geçici dosya oluşturulamadı', type: 'error' })
+        setStatus({ text: initResult.error || 'Ge\u00e7ici dosya olu\u015fturulamad\u0131', type: 'error' })
         cleanupStreams()
         return
       }
@@ -266,7 +301,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
       }
 
       recorder.onerror = () => {
-        setStatus({ text: 'Kayıt sırasında hata oluştu', type: 'error' })
+        setStatus({ text: t('recording.errorDuring'), type: 'error' })
         handleStopRecording()
       }
 
@@ -283,7 +318,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
         window.electronAPI.app.hide()
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Kayıt başlatılamadı'
+      const msg = err instanceof Error ? err.message : t('recording.cantStart')
       setStatus({ text: msg, type: 'error' })
       cleanupStreams()
     }
@@ -328,7 +363,14 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
       cropVideoRef.current.srcObject = null
       cropVideoRef.current = null
     }
+    // Stop the canvas captureStream (its tracks are independent of the
+    // desktop stream and otherwise leak the video frame loop).
+    if (cropStreamRef.current) {
+      cropStreamRef.current.getTracks().forEach(t => t.stop())
+      cropStreamRef.current = null
+    }
     cropRegionRef.current = null
+    cropScaleFactorRef.current = 1
 
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop())
@@ -374,15 +416,15 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
       const result = await window.electronAPI.recording.finalize(recorder.mimeType)
 
       if (result.success) {
-        setStatus({ text: `Kaydedildi: ${result.filePath}`, type: 'success' })
+        setStatus({ text: `${t('recording.saved')} ${result.filePath}`, type: 'success' })
         setSavedFilePath(result.filePath || null)
       } else if (result.error === 'Save cancelled') {
-        setStatus({ text: 'Kaydetme iptal edildi', type: 'info' })
+        setStatus({ text: t('recording.saveCancelled'), type: 'info' })
       } else {
-        setStatus({ text: `Kaydetme hatası: ${result.error}`, type: 'error' })
+        setStatus({ text: `${t('recording.saveError')} ${result.error}`, type: 'error' })
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Kaydetme başarısız'
+      const msg = err instanceof Error ? err.message : t('recording.saveFailed')
       setStatus({ text: msg, type: 'error' })
     }
 
@@ -395,12 +437,12 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
     try {
       const result = await window.electronAPI.upload.file(savedFilePath, 'recording')
       if (result.success) {
-        setStatus({ text: `Link kopyalandı: ${result.url}`, type: 'success' })
+        setStatus({ text: `Link kopyaland\u0131: ${result.url}`, type: 'success' })
       } else {
-        setStatus({ text: result.error || 'Upload başarısız', type: 'error' })
+        setStatus({ text: result.error || 'Upload ba\u015far\u0131s\u0131z', type: 'error' })
       }
     } catch {
-      setStatus({ text: 'Upload başarısız', type: 'error' })
+      setStatus({ text: 'Upload ba\u015far\u0131s\u0131z', type: 'error' })
     }
     setUploading(false)
   }
@@ -411,7 +453,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
       <div className="rec-compact-inner">
         <span className={`rec-dot-sm ${isPaused ? 'rec-paused' : ''}`} />
         <span className="rec-compact-time">{formatTime(elapsed)}</span>
-        <button className="rec-compact-btn" onClick={handlePauseResume} title={isPaused ? 'Devam' : 'Duraklat'}>
+        <button className="rec-compact-btn" onClick={handlePauseResume} title={isPaused ? t('recording.resume') : t('recording.pause')}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             {isPaused
               ? <path d="M8 5v14l11-7z"/>
@@ -419,7 +461,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
             }
           </svg>
         </button>
-        <button className="rec-compact-btn rec-compact-stop" onClick={handleStopRecording} title="Durdur">
+        <button className="rec-compact-btn rec-compact-stop" onClick={handleStopRecording} title={t('recording.stop')}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <rect x="6" y="6" width="12" height="12" rx="1"/>
           </svg>
@@ -427,7 +469,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
         <button
           className={`rec-compact-btn rec-compact-draw ${drawMode ? 'rec-compact-draw-active' : ''}`}
           onClick={handleToggleAnnotation}
-          title={drawMode ? 'Çizimi kapat' : 'Ekrana çiz'}
+          title={drawMode ? t('recording.closeDrawing') : t('recording.drawOnScreen')}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 19l7-7 3 3-7 7-3-3z"/>
@@ -443,14 +485,14 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
 
   return (
     <div className="panel" style={{ justifyContent: 'flex-start', paddingTop: '24px' }}>
-      <h2>Ekran Kaydı</h2>
+      <h2>{t('recording.title')}</h2>
 
       {phase === 'pick' && (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <p>Ekran veya pencere seçin</p>
+            <p>{t('recording.selectSource')}</p>
             <button className="back-btn" style={{ marginTop: 0, fontSize: '11px', padding: '4px 10px' }} onClick={loadSources}>
-              Yenile
+              {t('recording.refresh')}
             </button>
           </div>
           <SourcePicker
@@ -466,7 +508,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
               checked={micEnabled}
               onChange={e => setMicEnabled(e.target.checked)}
             />
-            <span className="mic-toggle-label">Mikrofon</span>
+            <span className="mic-toggle-label">{t('recording.microphone')}</span>
           </label>
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -476,7 +518,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
               onClick={() => handleStartRecording()}
               disabled={!selectedSource}
             >
-              <span className="mode-label">Kaydı Başlat</span>
+              <span className="mode-label">{t('recording.startRecording')}</span>
             </button>
             <button
               className="mode-btn"
@@ -490,7 +532,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
                 <path d="M3 9h18"/>
                 <path d="M3 15h18"/>
               </svg>
-              <span className="mode-label">Bölge Seç</span>
+              <span className="mode-label">{t('recording.selectRegion')}</span>
             </button>
           </div>
         </>
@@ -501,7 +543,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
           <div className="recording-indicator">
             <span className={`rec-dot ${isPaused ? 'rec-paused' : ''}`} />
             <span className={`rec-label ${isPaused ? 'rec-label-paused' : ''}`}>
-              {isPaused ? 'DURDURULDU' : 'KAYIT'}
+              {isPaused ? t('recording.paused') : t('recording.recording')}
             </span>
             <span className="rec-time">{formatTime(elapsed)}</span>
           </div>
@@ -511,7 +553,7 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
           </p>
           <div className="recording-controls">
             <button className="mode-btn rec-control-btn" onClick={handlePauseResume}>
-              <span className="mode-label">{isPaused ? 'Devam Et' : 'Duraklat'}</span>
+              <span className="mode-label">{isPaused ? t('recording.resume') : t('recording.pause')}</span>
             </button>
             <button
               className={`mode-btn rec-control-btn rec-draw-btn ${drawMode ? 'rec-draw-active' : ''}`}
@@ -523,17 +565,17 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
                 <path d="M2 2l7.586 7.586"/>
                 <circle cx="11" cy="11" r="2"/>
               </svg>
-              <span className="mode-label">{drawMode ? 'Çizimi Kapat' : 'Ekrana Çiz'}</span>
+              <span className="mode-label">{drawMode ? t('recording.closeDrawing') : t('recording.drawOnScreen')}</span>
             </button>
             <button className="mode-btn rec-control-btn rec-stop-btn" onClick={handleStopRecording}>
-              <span className="mode-label">Durdur</span>
+              <span className="mode-label">{t('recording.stop')}</span>
             </button>
           </div>
         </div>
       )}
 
       {phase === 'saving' && (
-        <p style={{ color: '#888' }}>Kayıt kaydediliyor...</p>
+        <p style={{ color: '#888' }}>{t('recording.saving')}</p>
       )}
 
       {status && (
@@ -549,13 +591,13 @@ export function RecordingPanel({ onBack, onRecordingStart, onRecordingEnd, compa
           disabled={uploading}
           style={{ marginTop: '4px' }}
         >
-          {uploading ? 'Yükleniyor...' : 'Paylaş'}
+          {uploading ? t('recording.uploading') : t('recording.shareBtn')}
         </button>
       )}
 
       {phase === 'pick' && (
         <button className="back-btn" onClick={onBack}>
-          Geri
+          {t('recording.back')}
         </button>
       )}
     </div>

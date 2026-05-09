@@ -116,6 +116,12 @@ const overlayAPI: OverlayAPI = {
   removeCapturedListener: () => {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.OVERLAY_CAPTURED)
   },
+  onBackground: (callback: (bgDataUrl: string, scaleFactor: number) => void) => {
+    ipcRenderer.on(IPC_CHANNELS.OVERLAY_BACKGROUND, (_event, bgDataUrl, scaleFactor) => callback(bgDataUrl, scaleFactor))
+  },
+  removeBackgroundListener: () => {
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.OVERLAY_BACKGROUND)
+  },
   copyFinal: (dataUrl) => ipcRenderer.invoke(IPC_CHANNELS.SCREENSHOT_COPY_FINAL, dataUrl),
   saveFinal: (dataUrl) => ipcRenderer.invoke(IPC_CHANNELS.SCREENSHOT_SAVE_FINAL, dataUrl),
   uploadScreenshot: (dataUrl) => ipcRenderer.invoke(IPC_CHANNELS.UPLOAD_SCREENSHOT, dataUrl),

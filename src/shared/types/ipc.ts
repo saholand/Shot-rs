@@ -26,6 +26,18 @@ export interface ScreenBounds {
   scaleFactor: number
 }
 
+/**
+ * Sent from main → renderer when the user picks a region for screen
+ * recording. Carries the display info so the renderer can pick the
+ * correct screen source and use the right scaleFactor for canvas crop.
+ */
+export interface RecordingRegionPayload {
+  region: SelectionRegion
+  displayId: string | null
+  scaleFactor: number
+  displayBounds: { x: number; y: number; width: number; height: number } | null
+}
+
 export interface ExportResult {
   success: boolean
   action: 'clipboard' | 'file' | 'capture'
@@ -73,7 +85,7 @@ export interface ElectronAPI {
     onQuickStart: (callback: (source: DesktopSource) => void) => void
     removeQuickStartListener: () => void
     selectRegion: () => Promise<void>
-    onRegionSelected: (callback: (region: SelectionRegion) => void) => void
+    onRegionSelected: (callback: (payload: RecordingRegionPayload) => void) => void
     removeRegionSelectedListener: () => void
     // Crash safety
     initTemp: (mimeType: string, sourceName: string) => Promise<{ success: boolean; sessionId?: string; error?: string }>
@@ -158,6 +170,8 @@ export interface OverlayAPI {
   onScreenBounds: (callback: (bounds: ScreenBounds) => void) => void
   onCaptured: (callback: (fullDataUrl: string, region: SelectionRegion, scaleFactor: number) => void) => void
   removeCapturedListener: () => void
+  onBackground: (callback: (bgDataUrl: string, scaleFactor: number) => void) => void
+  removeBackgroundListener: () => void
   copyFinal: (dataUrl: string) => Promise<ExportResult>
   saveFinal: (dataUrl: string) => Promise<ExportResult>
   uploadScreenshot: (dataUrl: string) => Promise<UploadResult>

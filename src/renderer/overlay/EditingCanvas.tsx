@@ -2,6 +2,10 @@ import { useRef, useEffect, useState, useCallback } from 'react'
 import type { Annotation, AnnotationTool, Point } from '../../shared/types/annotation'
 import type { SelectionRegion } from '../../shared/types/ipc'
 import { renderAll, renderAnnotation } from '../annotation/render'
+import {
+  STROKE_WIDTH_FACTORS, FONT_SIZE_FACTORS,
+  type ToolOptions
+} from '../annotation/hooks/useAnnotations'
 
 interface EditingCanvasProps {
   imageDataUrl: string
@@ -10,6 +14,7 @@ interface EditingCanvasProps {
   annotations: Annotation[]
   activeTool: AnnotationTool | null
   activeColor: string
+  options: ToolOptions
   onAddAnnotation: (annotation: Annotation) => void
   onMoveAnnotation: (id: string, dx: number, dy: number) => void
   onFrameMove?: (dx: number, dy: number) => void
@@ -42,6 +47,7 @@ export function EditingCanvas({
   annotations,
   activeTool,
   activeColor,
+  options,
   onAddAnnotation,
   onMoveAnnotation,
   onFrameMove,
@@ -79,14 +85,16 @@ export function EditingCanvas({
   const getStrokeWidth = useCallback(() => {
     const w = Math.round(region.width * scaleFactor)
     const h = Math.round(region.height * scaleFactor)
-    return Math.max(2, Math.round(Math.min(w, h) / 200))
-  }, [region.width, region.height, scaleFactor])
+    const base = Math.max(2, Math.round(Math.min(w, h) / 200))
+    return Math.max(1, Math.round(base * STROKE_WIDTH_FACTORS[options.strokeWidth]))
+  }, [region.width, region.height, scaleFactor, options.strokeWidth])
 
   const getFontSize = useCallback(() => {
     const w = Math.round(region.width * scaleFactor)
     const h = Math.round(region.height * scaleFactor)
-    return Math.max(16, Math.round(Math.min(w, h) / 30))
-  }, [region.width, region.height, scaleFactor])
+    const base = Math.max(16, Math.round(Math.min(w, h) / 30))
+    return Math.max(10, Math.round(base * FONT_SIZE_FACTORS[options.fontSize]))
+  }, [region.width, region.height, scaleFactor, options.fontSize])
 
   // Convert screen mouse coords → full-image pixel coords
   const toImageCoords = useCallback((e: React.MouseEvent | MouseEvent): Point => {
@@ -189,7 +197,7 @@ export function EditingCanvas({
     if (!startPoint || !currentPoint) return null
 
     if (activeTool === 'arrow') {
-      return { id: '__preview', type: 'arrow', color: activeColor, strokeWidth: sw, start: startPoint, end: currentPoint }
+      return { id: '__preview', type: 'arrow', color: activeColor, strokeWidth: sw, start: startPoint, end: currentPoint, headStyle: options.arrowStyle }
     }
     if (activeTool === 'rectangle') {
       return {
@@ -206,7 +214,7 @@ export function EditingCanvas({
         id: '__preview', type: 'blur', color: '', strokeWidth: 0,
         x: Math.min(startPoint.x, currentPoint.x), y: Math.min(startPoint.y, currentPoint.y),
         width: Math.abs(currentPoint.x - startPoint.x), height: Math.abs(currentPoint.y - startPoint.y),
-        intensity: 10
+        intensity: options.blurIntensity
       }
     }
     if (activeTool === 'ocr') {
@@ -459,7 +467,7 @@ export function EditingCanvas({
         const dx = currentPoint.x - startPoint.x
         const dy = currentPoint.y - startPoint.y
         if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
-          onAddAnnotation({ id: nextId(), type: 'arrow', color: activeColor, strokeWidth: sw, start: startPoint, end: currentPoint })
+          onAddAnnotation({ id: nextId(), type: 'arrow', color: activeColor, strokeWidth: sw, start: startPoint, end: currentPoint, headStyle: options.arrowStyle })
         }
       }
 
@@ -490,7 +498,7 @@ export function EditingCanvas({
           onAddAnnotation({
             id: nextId(), type: 'blur', color: '', strokeWidth: 0,
             x: Math.min(startPoint.x, currentPoint.x), y: Math.min(startPoint.y, currentPoint.y),
-            width: w, height: h, intensity: 10
+            width: w, height: h, intensity: options.blurIntensity
           })
         }
       }
