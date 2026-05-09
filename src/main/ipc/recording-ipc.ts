@@ -20,8 +20,12 @@ import {
   createHighlighterCursorWindow, closeHighlighterCursorWindow,
   pushHighlighterState, pushHighlighterPos, getHighlighterCursorWindow
 } from '../windows/highlighter-cursor-window'
+import {
+  createEffectsWindow, closeEffectsWindow,
+  pushEffectsState, pushEffectsClick, pushEffectsCursor, getEffectsWindow
+} from '../windows/effects-window'
 import type { RecordingResult } from '../../shared/types/recording'
-import type { HighlighterCursorState } from '../../shared/types/ipc'
+import type { HighlighterCursorState, EffectsState } from '../../shared/types/ipc'
 
 export function registerRecordingIPC(): void {
   // List available screens/windows
@@ -49,6 +53,14 @@ export function registerRecordingIPC(): void {
         if (getHighlighterCursorWindow()) {
           pushHighlighterPos(payload)
         }
+        if (getEffectsWindow()) {
+          pushEffectsCursor(payload)
+        }
+      },
+      onMouseDown: (payload) => {
+        if (getEffectsWindow()) {
+          pushEffectsClick(payload)
+        }
       }
     }).catch(err => console.warn('startMouseHook error:', err))
 
@@ -62,6 +74,7 @@ export function registerRecordingIPC(): void {
     setRecordingAlwaysOnTop(false)
     stopMouseHook()
     closeHighlighterCursorWindow()
+    closeEffectsWindow()
   })
 
   // Highlighter cursor toggle / state updates from the live toolbar
@@ -82,6 +95,20 @@ export function registerRecordingIPC(): void {
   ipcMain.on(IPC_CHANNELS.HIGHLIGHTER_CURSOR_UPDATE, (_event, state: HighlighterCursorState) => {
     if (state.enabled) {
       pushHighlighterState(state)
+    }
+  })
+
+  // Effects (click ripple + spotlight) — single combined state push.
+  // Window opens when ANY effect is enabled; closes when ALL are off.
+  ipcMain.on(IPC_CHANNELS.EFFECTS_TOGGLE, (_event, state: EffectsState) => {
+    const anyOn = state.clickRipple.enabled || state.spotlight.enabled
+    if (anyOn) {
+      const win = createEffectsWindow()
+      const sendNow = () => pushEffectsState(state)
+      win.webContents.once('did-finish-load', sendNow)
+      if (!win.webContents.isLoading()) sendNow()
+    } else {
+      closeEffectsWindow()
     }
   })
 

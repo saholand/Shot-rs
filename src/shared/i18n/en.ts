@@ -220,6 +220,12 @@ export const en: Record<string, string> = {
   'liveToolbar.highlightCursorSmall': 'Thin',
   'liveToolbar.highlightCursorMed': 'Medium',
   'liveToolbar.highlightCursorLarge': 'Thick',
+  'liveToolbar.clickRipple': 'Click effect (shows in recording)',
+  'liveToolbar.rippleSize': 'Size',
+  'liveToolbar.rippleSmall': 'Small',
+  'liveToolbar.rippleMed': 'Medium',
+  'liveToolbar.rippleLarge': 'Large',
+  'liveToolbar.rippleColor': 'Color',
 
   // ── Source Picker ──
   'sourcePicker.loading': 'Loading sources...',

@@ -220,6 +220,12 @@ export const tr: Record<string, string> = {
   'liveToolbar.highlightCursorSmall': 'İnce',
   'liveToolbar.highlightCursorMed': 'Orta',
   'liveToolbar.highlightCursorLarge': 'Kalın',
+  'liveToolbar.clickRipple': 'Tıklama efekti (kayıtta görünür)',
+  'liveToolbar.rippleSize': 'Boyut',
+  'liveToolbar.rippleSmall': 'Küçük',
+  'liveToolbar.rippleMed': 'Orta',
+  'liveToolbar.rippleLarge': 'Büyük',
+  'liveToolbar.rippleColor': 'Renk',
 
   // ── Source Picker ──
   'sourcePicker.loading': 'Kaynaklar yükleniyor...',

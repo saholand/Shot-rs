@@ -75,6 +75,12 @@ export const IPC_CHANNELS = {
   HIGHLIGHTER_CURSOR_UPDATE: 'highlighter-cursor:update',
   HIGHLIGHTER_CURSOR_POS: 'highlighter-cursor:pos',
 
+  // Recording effects window (click ripple + spotlight)
+  EFFECTS_TOGGLE: 'effects:toggle',
+  EFFECTS_STATE: 'effects:state',
+  EFFECTS_CLICK: 'effects:click',
+  EFFECTS_CURSOR_POS: 'effects:cursor-pos',
+
   // Region recording
   RECORDING_SELECT_REGION: 'recording:select-region',
   RECORDING_REGION_SELECTED: 'recording:region-selected',

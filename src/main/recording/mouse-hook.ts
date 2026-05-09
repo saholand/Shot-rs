@@ -6,9 +6,11 @@
  */
 
 type MouseMoveCb = (payload: { x: number; y: number }) => void
+type MouseDownCb = (payload: { x: number; y: number; button: number }) => void
 
 interface HookCallbacks {
   onMouseMove?: MouseMoveCb
+  onMouseDown?: MouseDownCb
 }
 
 let active = false
@@ -29,14 +31,19 @@ export async function startMouseHook(cbs: HookCallbacks): Promise<boolean> {
   const handleMouseMove = (e: { x: number; y: number }) => {
     cbs.onMouseMove?.({ x: e.x, y: e.y })
   }
+  const handleMouseDown = (e: { x: number; y: number; button: number }) => {
+    cbs.onMouseDown?.({ x: e.x, y: e.y, button: e.button })
+  }
 
   try {
     uIOhook.on('mousemove', handleMouseMove)
+    uIOhook.on('mousedown', handleMouseDown)
     uIOhook.start()
     active = true
     cleanup = () => {
       try {
         uIOhook.off('mousemove', handleMouseMove)
+        uIOhook.off('mousedown', handleMouseDown)
         uIOhook.stop()
       } catch (err) {
         console.warn('uiohook teardown error:', err)

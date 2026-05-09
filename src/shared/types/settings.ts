@@ -57,6 +57,11 @@ export interface AppSettings {
   // ── Highlighter cursor ──
   highlighterCursorEnabled: boolean
   highlighterCursorThickness: HighlighterThickness
+
+  // ── Click ripple ──
+  clickRippleEnabled: boolean
+  clickRippleColor: string
+  clickRippleSize: 'small' | 'medium' | 'large'
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -79,7 +84,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   recordSystemAudio: false,
   recordingMaxDurationSec: null,
   highlighterCursorEnabled: false,
-  highlighterCursorThickness: 'medium'
+  highlighterCursorThickness: 'medium',
+  clickRippleEnabled: false,
+  clickRippleColor: '#4fa3f7',
+  clickRippleSize: 'medium'
 }
 
 /**

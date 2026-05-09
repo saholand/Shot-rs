@@ -10,6 +10,7 @@ type FontSize = 'small' | 'medium' | 'large'
 type ArrowStyle = 'filled' | 'outline'
 type EraserSize = 'small' | 'medium' | 'large'
 type HighlighterThickness = 'small' | 'medium' | 'large'
+type RippleSize = 'small' | 'medium' | 'large'
 
 const PRESET_COLORS = ['#ff0000', '#4fa3f7', '#28a745', '#ffc107', '#ffffff', '#000000']
 const RECENT_COLORS_LIMIT = 4
@@ -55,6 +56,9 @@ export function AnnotationToolbarApp() {
   const [eraserSize, setEraserSize] = useState<EraserSize>('medium')
   const [highlighterEnabled, setHighlighterEnabled] = useState(false)
   const [highlighterThickness, setHighlighterThickness] = useState<HighlighterThickness>('medium')
+  const [rippleEnabled, setRippleEnabled] = useState(false)
+  const [rippleColor, setRippleColor] = useState('#4fa3f7')
+  const [rippleSize, setRippleSize] = useState<RippleSize>('medium')
   const [textInput, setTextInput] = useState('')
 
   const textInputRef = useRef<HTMLInputElement>(null)
@@ -144,6 +148,31 @@ export function AnnotationToolbarApp() {
     }
   }, [activeColor, highlighterEnabled, highlighterThickness])
 
+  // Click ripple effect — tied to its own toggle (independent of draw color)
+  const pushRippleState = useCallback((enabled: boolean, color: string, size: RippleSize) => {
+    window.electronAPI.recording.setEffectsState({
+      clickRipple: { enabled, color, size },
+      // Spotlight stays off until Phase 3 wires it
+      spotlight: { enabled: false, radius: 'medium', dim: 'medium' }
+    })
+  }, [])
+
+  const handleRippleToggle = useCallback(() => {
+    const next = !rippleEnabled
+    setRippleEnabled(next)
+    pushRippleState(next, rippleColor, rippleSize)
+  }, [rippleEnabled, rippleColor, rippleSize, pushRippleState])
+
+  const handleRippleSizeChange = useCallback((value: RippleSize) => {
+    setRippleSize(value)
+    if (rippleEnabled) pushRippleState(true, rippleColor, value)
+  }, [rippleEnabled, rippleColor, pushRippleState])
+
+  const handleRippleColorChange = useCallback((value: string) => {
+    setRippleColor(value)
+    if (rippleEnabled) pushRippleState(true, value, rippleSize)
+  }, [rippleEnabled, rippleSize, pushRippleState])
+
   const handleUndo = useCallback(() => sendCommand({ type: 'undo' }), [sendCommand])
   const handleClear = useCallback(() => sendCommand({ type: 'clear' }), [sendCommand])
   const handleCloseDraw = useCallback(() => window.annotationOverlayAPI.toggle(), [])
@@ -194,7 +223,9 @@ export function AnnotationToolbarApp() {
   }, [sendCommand])
 
   // Sub-bar content per tool
-  const showSubbar = (activeTool ? TOOLS_WITH_OPTIONS.has(activeTool as LiveTool) : false) || highlighterEnabled
+  const showSubbar = (activeTool ? TOOLS_WITH_OPTIONS.has(activeTool as LiveTool) : false)
+    || highlighterEnabled
+    || rippleEnabled
 
   const renderStroke = () => (
     <div className="la-sub-group">
@@ -263,6 +294,43 @@ export function AnnotationToolbarApp() {
     { id: 'medium', dot: 10, label: t('liveToolbar.highlightCursorMed') },
     { id: 'large', dot: 14, label: t('liveToolbar.highlightCursorLarge') }
   ]
+
+  const RIPPLE_SIZES: { id: RippleSize; dot: number; label: string }[] = [
+    { id: 'small', dot: 6, label: t('liveToolbar.rippleSmall') },
+    { id: 'medium', dot: 10, label: t('liveToolbar.rippleMed') },
+    { id: 'large', dot: 14, label: t('liveToolbar.rippleLarge') }
+  ]
+  const RIPPLE_COLORS = ['#ff0000', '#4fa3f7', '#28a745', '#ffc107', '#ffffff']
+  const renderRipple = () => (
+    <>
+      <div className="la-sub-group">
+        <span className="la-sub-label">{t('liveToolbar.rippleSize')}</span>
+        {RIPPLE_SIZES.map(s => (
+          <button
+            key={s.id}
+            className={`la-stroke-btn ${rippleSize === s.id ? 'la-stroke-active' : ''}`}
+            onClick={() => handleRippleSizeChange(s.id)}
+            title={s.label}
+          >
+            <span className="la-stroke-dot" style={{ width: s.dot, height: s.dot, background: rippleColor }} />
+          </button>
+        ))}
+      </div>
+      <div className="la-sub-sep" />
+      <div className="la-sub-group">
+        <span className="la-sub-label">{t('liveToolbar.rippleColor')}</span>
+        {RIPPLE_COLORS.map(c => (
+          <button
+            key={c}
+            className={`la-color ${rippleColor.toLowerCase() === c.toLowerCase() ? 'la-color-active' : ''}`}
+            style={{ background: c, width: 16, height: 16 }}
+            onClick={() => handleRippleColorChange(c)}
+            title={c}
+          />
+        ))}
+      </div>
+    </>
+  )
   const renderHighlighterCursor = () => (
     <div className="la-sub-group">
       <span className="la-sub-label">{t('liveToolbar.highlightCursorSize')}</span>
@@ -300,9 +368,11 @@ export function AnnotationToolbarApp() {
         // Live mode legacy: 'move' is the eraser tool
         return renderEraser()
       default:
-        // No tool with options selected — but if highlighter cursor is on,
-        // show its thickness selector instead of an empty sub-bar.
-        return highlighterEnabled ? renderHighlighterCursor() : null
+        // No tool with options selected — fall back to whichever effect
+        // toggle is on, in priority order: ripple > highlighter cursor.
+        if (rippleEnabled) return renderRipple()
+        if (highlighterEnabled) return renderHighlighterCursor()
+        return null
     }
   })()
 
@@ -448,6 +518,21 @@ export function AnnotationToolbarApp() {
             <circle cx="12" cy="12" r="4" fill="currentColor" opacity="0.55" />
             <circle cx="12" cy="12" r="9" />
             <path d="M12 1v3M12 20v3M1 12h3M20 12h3" />
+          </svg>
+        </button>
+
+        {/* Click ripple toggle — expanding circle on every left-click in
+            the recording. Color and size are independent of draw color. */}
+        <button
+          className={`la-btn ${rippleEnabled ? 'la-btn-active' : ''}`}
+          onClick={handleRippleToggle}
+          title={t('liveToolbar.clickRipple')}
+          style={rippleEnabled ? { color: rippleColor, borderColor: rippleColor } : undefined}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+            <circle cx="12" cy="12" r="6" opacity="0.6" />
+            <circle cx="12" cy="12" r="10" opacity="0.3" />
           </svg>
         </button>
 

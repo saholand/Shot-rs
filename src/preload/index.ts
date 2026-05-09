@@ -2,7 +2,8 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '../shared/constants'
 import type {
   ElectronAPI, OverlayAPI, AnnotationOverlayAPI, AnnotationMode, ScreenBounds, SelectionRegion,
-  HighlighterCursorState, HighlighterPosPayload
+  HighlighterCursorState, HighlighterPosPayload,
+  EffectsState, EffectsClickPayload
 } from '../shared/types/ipc'
 
 const RESULT_CHANNEL = IPC_CHANNELS.SCREENSHOT_RESULT
@@ -75,6 +76,10 @@ const api: ElectronAPI = {
     },
     updateHighlighterCursor: (state: HighlighterCursorState) => {
       ipcRenderer.send(IPC_CHANNELS.HIGHLIGHTER_CURSOR_UPDATE, state)
+    },
+    // Effects (click ripple + spotlight) — single combined state push
+    setEffectsState: (state: EffectsState) => {
+      ipcRenderer.send(IPC_CHANNELS.EFFECTS_TOGGLE, state)
     }
   },
   app: {
@@ -179,7 +184,29 @@ const highlighterCursorAPI = {
   }
 }
 
+const effectsAPI = {
+  onState: (callback: (state: EffectsState) => void) => {
+    ipcRenderer.on(IPC_CHANNELS.EFFECTS_STATE, (_e, state) => callback(state))
+  },
+  removeStateListener: () => {
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.EFFECTS_STATE)
+  },
+  onClick: (callback: (payload: EffectsClickPayload) => void) => {
+    ipcRenderer.on(IPC_CHANNELS.EFFECTS_CLICK, (_e, payload) => callback(payload))
+  },
+  removeClickListener: () => {
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.EFFECTS_CLICK)
+  },
+  onCursorPos: (callback: (payload: HighlighterPosPayload) => void) => {
+    ipcRenderer.on(IPC_CHANNELS.EFFECTS_CURSOR_POS, (_e, payload) => callback(payload))
+  },
+  removeCursorPosListener: () => {
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.EFFECTS_CURSOR_POS)
+  }
+}
+
 contextBridge.exposeInMainWorld('electronAPI', api)
 contextBridge.exposeInMainWorld('overlayAPI', overlayAPI)
 contextBridge.exposeInMainWorld('annotationOverlayAPI', annotationOverlayAPI)
 contextBridge.exposeInMainWorld('highlighterCursorAPI', highlighterCursorAPI)
+contextBridge.exposeInMainWorld('effectsAPI', effectsAPI)

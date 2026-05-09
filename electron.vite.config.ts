@@ -31,7 +31,8 @@ export default defineConfig({
           overlay: resolve(__dirname, 'src/renderer/overlay.html'),
           'annotation-overlay': resolve(__dirname, 'src/renderer/annotation-overlay.html'),
           'annotation-toolbar': resolve(__dirname, 'src/renderer/annotation-toolbar.html'),
-          'highlighter-cursor': resolve(__dirname, 'src/renderer/highlighter-cursor.html')
+          'highlighter-cursor': resolve(__dirname, 'src/renderer/highlighter-cursor.html'),
+          effects: resolve(__dirname, 'src/renderer/effects.html')
         }
       }
     }

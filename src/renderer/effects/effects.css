@@ -1,0 +1,24 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body, #effects-root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  pointer-events: none;
+  cursor: none;
+}
+
+.fx-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fx-ripple {
+  position: fixed;
+  border-radius: 50%;
+  border: 3px solid;
+  pointer-events: none;
+  will-change: transform, opacity, width, height;
+}

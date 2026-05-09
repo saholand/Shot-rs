@@ -56,6 +56,29 @@ export interface HighlighterCursorState {
   thickness: 'small' | 'medium' | 'large'
 }
 
+/** Effects overlay state — click ripples and (Phase 3) cursor spotlight. */
+export interface EffectsState {
+  clickRipple: {
+    enabled: boolean
+    color: string
+    size: 'small' | 'medium' | 'large'
+  }
+  spotlight: {
+    enabled: boolean
+    radius: 'small' | 'medium' | 'large'
+    dim: 'low' | 'medium' | 'high'
+  }
+}
+
+export interface EffectsClickPayload {
+  /** Virtual-desktop X. */
+  x: number
+  /** Virtual-desktop Y. */
+  y: number
+  /** uiohook button code (1=L, 2=R, 3=M typically). */
+  button: number
+}
+
 export interface ExportResult {
   success: boolean
   action: 'clipboard' | 'file' | 'capture'
@@ -115,6 +138,8 @@ export interface ElectronAPI {
     // Highlighter cursor
     setHighlighterCursor: (state: HighlighterCursorState) => void
     updateHighlighterCursor: (state: HighlighterCursorState) => void
+    // Effects overlay (click ripple + spotlight)
+    setEffectsState: (state: EffectsState) => void
   }
 
   app: {
