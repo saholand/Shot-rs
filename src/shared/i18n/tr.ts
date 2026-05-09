@@ -39,6 +39,8 @@ export const tr: Record<string, string> = {
   'history.share': 'Paylaş',
   'history.copyToClipboard': 'Panoya kopyala',
   'history.exportGif': 'GIF olarak dışa aktar',
+  'history.trim': 'Kes',
+  'history.trimSaved': 'Kesilmiş kopya kaydedildi',
   'history.open': 'Aç',
   'history.showInFolder': 'Klasörde göster',
   'history.removeFromList': 'Listeden kaldır',

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { HistoryEntry } from '../../shared/types/history'
 import { videoToGif } from '../utils/gif-encoder'
+import { TrimEditor } from '../trim/TrimEditor'
 import { useTranslation } from '../hooks/useTranslation'
 import { t as i18nT } from '../../shared/i18n'
 
@@ -100,6 +101,16 @@ const IconGif = () => (
   </svg>
 )
 
+const IconScissors = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="6" cy="6" r="3" />
+    <circle cx="6" cy="18" r="3" />
+    <line x1="20" y1="4" x2="8.12" y2="15.88" />
+    <line x1="14.47" y1="14.48" x2="20" y2="20" />
+    <line x1="8.12" y1="8.12" x2="12" y2="12" />
+  </svg>
+)
+
 const IconLoading = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: 'spin 1s linear infinite' }}>
     <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
@@ -116,6 +127,7 @@ export function HistoryPanel({ onBack }: Props) {
   const [confirmClear, setConfirmClear] = useState(false)
   const [gifExportingId, setGifExportingId] = useState<string | null>(null)
   const [gifProgress, setGifProgress] = useState(0)
+  const [trimEntry, setTrimEntry] = useState<HistoryEntry | null>(null)
 
   const loadHistory = async () => {
     setLoading(true)
@@ -358,18 +370,27 @@ export function HistoryPanel({ onBack }: Props) {
                   </button>
                 )}
                 {entry.type === 'recording' && (
-                  <button
-                    className="history-action-btn history-gif-btn"
-                    onClick={() => handleGifExport(entry)}
-                    disabled={gifExportingId === entry.id}
-                    title={t('history.exportGif')}
-                  >
-                    {gifExportingId === entry.id ? (
-                      <span className="history-gif-progress">{gifProgress}%</span>
-                    ) : (
-                      <IconGif />
-                    )}
-                  </button>
+                  <>
+                    <button
+                      className="history-action-btn"
+                      onClick={() => setTrimEntry(entry)}
+                      title={t('history.trim')}
+                    >
+                      <IconScissors />
+                    </button>
+                    <button
+                      className="history-action-btn history-gif-btn"
+                      onClick={() => handleGifExport(entry)}
+                      disabled={gifExportingId === entry.id}
+                      title={t('history.exportGif')}
+                    >
+                      {gifExportingId === entry.id ? (
+                        <span className="history-gif-progress">{gifProgress}%</span>
+                      ) : (
+                        <IconGif />
+                      )}
+                    </button>
+                  </>
                 )}
                 <button
                   className="history-action-btn"
@@ -396,6 +417,20 @@ export function HistoryPanel({ onBack }: Props) {
             </div>
           ))}
         </div>
+      )}
+
+      {trimEntry && (
+        <TrimEditor
+          filePath={trimEntry.filePath}
+          onClose={() => setTrimEntry(null)}
+          onSaved={async () => {
+            setTrimEntry(null)
+            // Refresh list so the trimmed copy appears
+            const fresh = await window.electronAPI.history.getAll()
+            setEntries(fresh)
+            setStatus({ text: i18nT('history.trimSaved'), type: 'success' })
+          }}
+        />
       )}
     </div>
   )

@@ -39,6 +39,8 @@ export const en: Record<string, string> = {
   'history.share': 'Share',
   'history.copyToClipboard': 'Copy to clipboard',
   'history.exportGif': 'Export as GIF',
+  'history.trim': 'Trim',
+  'history.trimSaved': 'Trimmed copy saved',
   'history.open': 'Open',
   'history.showInFolder': 'Show in folder',
   'history.removeFromList': 'Remove from list',
