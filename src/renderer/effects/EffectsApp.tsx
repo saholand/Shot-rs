@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { EffectsState, EffectsClickPayload } from '../../shared/types/ipc'
+import type { EffectsState, EffectsClickPayload, HighlighterPosPayload } from '../../shared/types/ipc'
 
 interface Ripple {
   id: number
@@ -17,6 +17,17 @@ const RIPPLE_BASE: Record<'small' | 'medium' | 'large', number> = {
   large: 160
 }
 
+const SPOTLIGHT_RADIUS: Record<'small' | 'medium' | 'large', number> = {
+  small: 110,
+  medium: 180,
+  large: 280
+}
+const SPOTLIGHT_DIM: Record<'low' | 'medium' | 'high', number> = {
+  low: 0.25,
+  medium: 0.5,
+  high: 0.75
+}
+
 const DEFAULT_STATE: EffectsState = {
   clickRipple: { enabled: false, color: '#4fa3f7', size: 'medium' },
   spotlight: { enabled: false, radius: 'medium', dim: 'medium' }
@@ -29,6 +40,11 @@ export function EffectsApp() {
   const ripplesRef = useRef<Ripple[]>([])
   const containerRef = useRef<HTMLDivElement | null>(null)
   const rafRef = useRef<number | null>(null)
+  // Cursor position (for spotlight). Smoothed via lerp inside the rAF
+  // tick so the spotlight tracks the cursor without jitter.
+  const cursorTargetRef = useRef<{ x: number; y: number }>({ x: -1000, y: -1000 })
+  const cursorRenderRef = useRef<{ x: number; y: number }>({ x: -1000, y: -1000 })
+  const spotlightElRef = useRef<HTMLDivElement | null>(null)
 
   // Wire IPC: state updates + click events from main
   useEffect(() => {
@@ -54,9 +70,13 @@ export function EffectsApp() {
         ripplesRef.current.splice(0, ripplesRef.current.length - 6)
       }
     })
+    window.effectsAPI.onCursorPos((p: HighlighterPosPayload) => {
+      cursorTargetRef.current = { x: p.x, y: p.y }
+    })
     return () => {
       window.effectsAPI.removeStateListener()
       window.effectsAPI.removeClickListener()
+      window.effectsAPI.removeCursorPosListener()
     }
   }, [])
 
@@ -68,10 +88,28 @@ export function EffectsApp() {
   }, [state])
 
   // rAF loop: render ripple DOM nodes via direct manipulation (avoid
-  // React re-render storm at 60fps).
+  // React re-render storm at 60fps). Also drives the spotlight tracking.
   useEffect(() => {
     const tick = () => {
       const now = performance.now()
+
+      // Spotlight: smooth cursor lerp + radial-gradient mask via CSS var
+      const sp = spotlightElRef.current
+      if (sp) {
+        const t = cursorTargetRef.current
+        const r = cursorRenderRef.current
+        const dx = t.x - r.x
+        const dy = t.y - r.y
+        if (Math.abs(dx) < 1 && Math.abs(dy) < 1) {
+          r.x = t.x; r.y = t.y
+        } else {
+          r.x += dx * 0.85
+          r.y += dy * 0.85
+        }
+        sp.style.setProperty('--cx', `${r.x}px`)
+        sp.style.setProperty('--cy', `${r.y}px`)
+      }
+
       const container = containerRef.current
       if (container) {
         // Update / cull ripples
@@ -118,5 +156,29 @@ export function EffectsApp() {
     }
   }, [])
 
-  return <div ref={containerRef} className="fx-root" />
+  const spot = state.spotlight
+  const spotRadius = SPOTLIGHT_RADIUS[spot.radius]
+  const spotDim = SPOTLIGHT_DIM[spot.dim]
+
+  return (
+    <>
+      {spot.enabled && (
+        <div
+          ref={spotlightElRef}
+          className="fx-spotlight"
+          style={{
+            // Radial mask: transparent in a circle around cursor, dim
+            // black everywhere else. CSS variables let the rAF loop
+            // update the center without React re-render.
+            background: `radial-gradient(circle ${spotRadius}px at var(--cx) var(--cy),
+              transparent 0%,
+              transparent ${Math.round(spotRadius * 0.6)}px,
+              rgba(0, 0, 0, ${spotDim}) ${spotRadius}px,
+              rgba(0, 0, 0, ${spotDim}) 100%)`
+          }}
+        />
+      )}
+      <div ref={containerRef} className="fx-root" />
+    </>
+  )
 }

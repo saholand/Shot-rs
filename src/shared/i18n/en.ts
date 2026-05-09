@@ -226,6 +226,15 @@ export const en: Record<string, string> = {
   'liveToolbar.rippleMed': 'Medium',
   'liveToolbar.rippleLarge': 'Large',
   'liveToolbar.rippleColor': 'Color',
+  'liveToolbar.spotlight': 'Spotlight (bright around cursor)',
+  'liveToolbar.spotRadius': 'Radius',
+  'liveToolbar.spotSmall': 'Small',
+  'liveToolbar.spotMed': 'Medium',
+  'liveToolbar.spotLarge': 'Large',
+  'liveToolbar.spotDim': 'Dim',
+  'liveToolbar.spotDimLow': 'Low',
+  'liveToolbar.spotDimMed': 'Med',
+  'liveToolbar.spotDimHigh': 'High',
 
   // ── Source Picker ──
   'sourcePicker.loading': 'Loading sources...',

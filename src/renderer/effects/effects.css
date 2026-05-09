@@ -22,3 +22,10 @@ html, body, #effects-root {
   pointer-events: none;
   will-change: transform, opacity, width, height;
 }
+
+.fx-spotlight {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  will-change: background;
+}

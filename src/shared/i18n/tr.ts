@@ -226,6 +226,15 @@ export const tr: Record<string, string> = {
   'liveToolbar.rippleMed': 'Orta',
   'liveToolbar.rippleLarge': 'Büyük',
   'liveToolbar.rippleColor': 'Renk',
+  'liveToolbar.spotlight': 'Spotlight (cursor etrafı parlak)',
+  'liveToolbar.spotRadius': 'Yarıçap',
+  'liveToolbar.spotSmall': 'Küçük',
+  'liveToolbar.spotMed': 'Orta',
+  'liveToolbar.spotLarge': 'Büyük',
+  'liveToolbar.spotDim': 'Karartma',
+  'liveToolbar.spotDimLow': 'Az',
+  'liveToolbar.spotDimMed': 'Orta',
+  'liveToolbar.spotDimHigh': 'Çok',
 
   // ── Source Picker ──
   'sourcePicker.loading': 'Kaynaklar yükleniyor...',

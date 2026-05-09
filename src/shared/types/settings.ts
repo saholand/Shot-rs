@@ -62,6 +62,11 @@ export interface AppSettings {
   clickRippleEnabled: boolean
   clickRippleColor: string
   clickRippleSize: 'small' | 'medium' | 'large'
+
+  // ── Cursor spotlight ──
+  cursorSpotlightEnabled: boolean
+  cursorSpotlightRadius: 'small' | 'medium' | 'large'
+  cursorSpotlightDim: 'low' | 'medium' | 'high'
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -87,7 +92,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   highlighterCursorThickness: 'medium',
   clickRippleEnabled: false,
   clickRippleColor: '#4fa3f7',
-  clickRippleSize: 'medium'
+  clickRippleSize: 'medium',
+  cursorSpotlightEnabled: false,
+  cursorSpotlightRadius: 'medium',
+  cursorSpotlightDim: 'medium'
 }
 
 /**
